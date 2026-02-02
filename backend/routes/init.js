@@ -56,7 +56,8 @@ router.post('/init-db', async (req, res) => {
             success: false,
             message: 'Error al inicializar la base de datos',
             error: error.message,
-            stack: error.stack
+            stack: error.stack,
+            details: error
         });
     }
 });
