@@ -359,7 +359,7 @@ router.post('/importar-excel', authenticateToken, authorizeRole('admin', 'gerent
             const fabricante = fila['fabricante'] || null;
             const marca = fila['marca'] || null;
             const nombre = fila['nombre'] || fila['nombreproducto'] || fila['nombre_producto'] || fila['producto'] || null;
-            const tipo_animal = (fila['animal'] || fila['tipoanimal'] || fila['tipo_animal']) ? String(fila['animal'] || fila['tipoanimal'] || fila['tipo_animal']).toUpperCase() : null;
+            const tipo_animal = (fila['animal'] || fila['tipoanimal'] || fila['tipo_animal']) ? (['PERRO', 'GATO'].includes(String(fila['animal'] || fila['tipoanimal'] || fila['tipo_animal']).toUpperCase()) ? String(fila['animal'] || fila['tipoanimal'] || fila['tipo_animal']).toUpperCase() : 'OTROS') : 'OTROS';
             const tipo_presentacion = (fila['tipopresentacion'] || fila['tipo_presentacion'] || 'UNIDAD')?.toString().toUpperCase();
             const factor_conversion = fila['factorconversion'] != null ? fila['factorconversion'] : fila['factor_conversion'];
             const stock_minimo = fila['stockminimo'] != null ? fila['stockminimo'] : fila['stock_minimo'];
@@ -372,6 +372,7 @@ router.post('/importar-excel', authenticateToken, authorizeRole('admin', 'gerent
             if (!codigo) rowErrors.push('codigo requerido');
             if (!nombre) rowErrors.push('nombre producto requerido');
             if (tipo_presentacion && !['BOLSA', 'UNIDAD'].includes(String(tipo_presentacion).toUpperCase())) rowErrors.push('tipo_presentacion invalido (BOLSA/UNIDAD)');
+            // tipo_animal now defaults to OTROS, so no validation error needed
             if (factor_conversion != null && isNaN(parseFloat(factor_conversion))) rowErrors.push('factor_conversion debe ser numerico');
             if (stock_minimo != null && isNaN(parseFloat(stock_minimo))) rowErrors.push('stock_minimo debe ser numerico');
             if (precio_compra != null && precio_compra !== '' && isNaN(parseFloat(precio_compra))) rowErrors.push('precio_compra debe ser numerico');
@@ -418,10 +419,19 @@ router.post('/importar-excel', authenticateToken, authorizeRole('admin', 'gerent
         }
 
         await client.query('COMMIT');
-        res.json({ message: 'Proceso terminado', creados, actualizados });
+        res.json({ 
+            message: 'Proceso terminado', 
+            creados, 
+            actualizados, 
+            errors: errors 
+        });
     } catch (error) {
         await client.query('ROLLBACK');
-        res.status(500).json({ error: 'Error procesando Excel' });
+        console.error('Excel import error:', error);
+        res.status(500).json({ 
+            error: 'Error procesando Excel',
+            details: error.message
+        });
     } finally {
         client.release();
     }

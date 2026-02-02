@@ -100,10 +100,22 @@ export default function Productos() {
             const response = await api.post('/productos/importar-excel', data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert(`Importacion finalizada:\n- Creados: ${response.data.creados}\n- Actualizados: ${response.data.actualizados}`);
+            let message = `Importacion finalizada:\n- Creados: ${response.data.creados}\n- Actualizados: ${response.data.actualizados}`;
+            
+            if (response.data.errors && response.data.errors.length > 0) {
+                message += `\n- Errores: ${response.data.errors.length} filas con errores`;
+                const errorsDetails = response.data.errors.map(err => 
+                    `Fila ${err.row} (Codigo: ${err.codigo || 'N/A'}): ${err.errors.join(', ')}`
+                ).join('\n');
+                message += `\n\nDetalles de errores:\n${errorsDetails}`;
+            }
+            
+            alert(message);
             loadProductos();
         } catch (err) {
-            alert(err.response?.data?.error || 'Error al importar archivo');
+            const errorMessage = err.response?.data?.error || 'Error al importar archivo';
+            const errorDetails = err.response?.data?.details;
+            alert(errorDetails ? `${errorMessage}\n\nDetalles: ${errorDetails}` : errorMessage);
         } finally {
             setLoading(false);
             e.target.value = '';
