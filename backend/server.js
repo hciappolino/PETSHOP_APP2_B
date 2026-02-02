@@ -21,6 +21,7 @@ import preciosRoutes from './routes/precios.js';
 import reportesRoutes from './routes/reportes.js';
 import debugRoutes from './routes/debug.js';
 import initRoutes from './routes/init-simple.js';
+import usuariosRoutes from './routes/usuarios.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -97,6 +98,7 @@ app.get('/health', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/empresas', empresasRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/clientes', clientesRoutes);

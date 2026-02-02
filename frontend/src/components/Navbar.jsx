@@ -101,6 +101,8 @@ export const Navbar = () => {
                     {canSeeAll && (
                         <Link to="/reportes" className="nav-link">📊 Reportes</Link>
                     )}
+
+
                 </div>
 
                 <div className="navbar-user">
