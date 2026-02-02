@@ -94,6 +94,23 @@ export default function Login() {
                     <p className="text-muted">
                         Single-Company Architecture
                     </p>
+                    <div style={{ marginTop: '1rem' }}>
+                        <button
+                            type="button"
+                            onClick={() => window.location.href = '/init-db'}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                background: 'transparent',
+                                color: '#6c757d',
+                                border: '1px solid #6c757d',
+                                borderRadius: '4px',
+                                fontSize: '0.875rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            🛠️ Gestión de Base de Datos
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

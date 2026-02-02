@@ -302,17 +302,22 @@ VALUES (1, 3, 500.00, 400.00);
 
 router.post('/init-db', async (req, res) => {
     try {
+        const { withSeeds = true } = req.body;
+        
         console.log('Iniciando inicialización de la base de datos desde API (versión simple)...');
+        console.log(`Modo: ${withSeeds ? 'con datos de ejemplo' : 'base de datos vacía'}`);
         
         // Ejecutar script de estructura
         console.log('Ejecutando script de estructura...');
         await pool.query(schemaSQL);
         console.log('Estructura de la base de datos creada');
         
-        // Ejecutar script de datos iniciales
-        console.log('Ejecutando script de datos iniciales...');
-        await pool.query(seedSQL);
-        console.log('Datos iniciales insertados');
+        if (withSeeds) {
+            // Ejecutar script de datos iniciales
+            console.log('Ejecutando script de datos iniciales...');
+            await pool.query(seedSQL);
+            console.log('Datos iniciales insertados');
+        }
         
         // Verificar usuarios
         const usersResult = await pool.query('SELECT id, username, email, rol FROM usuarios');
@@ -320,7 +325,7 @@ router.post('/init-db', async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Base de datos inicializada correctamente',
+            message: withSeeds ? 'Base de datos inicializada correctamente con datos de ejemplo' : 'Base de datos vacía creada correctamente',
             data: {
                 usuarios: usersResult.rows.length,
                 productos: productsResult.rows.length
@@ -335,6 +340,47 @@ router.post('/init-db', async (req, res) => {
             error: error.message,
             stack: error.stack,
             details: error
+        });
+    }
+});
+
+// Endpoint to drop all tables (warning: destructive operation)
+router.post('/drop-db', async (req, res) => {
+    try {
+        console.log('Eliminando todas las tablas de la base de datos...');
+        
+        // Drop all tables (using the same order as in schemaSQL for dependencies)
+        await pool.query(`
+            DROP TABLE IF EXISTS fondos_movimientos CASCADE;
+            DROP TABLE IF EXISTS stock_movimientos CASCADE;
+            DROP TABLE IF EXISTS venta_items CASCADE;
+            DROP TABLE IF EXISTS ventas CASCADE;
+            DROP TABLE IF EXISTS compras_renglones CASCADE;
+            DROP TABLE IF EXISTS compras_facturas CASCADE;
+            DROP TABLE IF EXISTS lista_articulo CASCADE;
+            DROP TABLE IF EXISTS listas_precios CASCADE;
+            DROP TABLE IF EXISTS articulos_proveedor CASCADE;
+            DROP TABLE IF EXISTS productos CASCADE;
+            DROP TABLE IF EXISTS clientes CASCADE;
+            DROP TABLE IF EXISTS proveedores CASCADE;
+            DROP TABLE IF EXISTS sesiones_caja CASCADE;
+            DROP TABLE IF EXISTS cuentas_pago CASCADE;
+            DROP TABLE IF EXISTS usuarios CASCADE;
+        `);
+        
+        console.log('Todas las tablas eliminadas correctamente');
+        
+        res.json({
+            success: true,
+            message: 'Base de datos eliminada correctamente'
+        });
+        
+    } catch (error) {
+        console.error('Error al eliminar la base de datos:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al eliminar la base de datos',
+            error: error.message
         });
     }
 });
