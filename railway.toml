@@ -1,1 +1,8 @@
-["build]\nbuilder = \"NIXPACKS", ["deploy]\nhealthcheckPath = \"/\"\nhealthcheckTimeout = 100\nrestartPolicyType = \"ON_FAILURE", "restartPolicyMaxRetries = 10"]]
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
