@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: petshop_db
+    environment:
+      POSTGRES_DB: petshop_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/single_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/single_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - petshop_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: petshop_backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: petshop_app
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PORT: 3000
+      JWT_SECRET: dev_secret_key
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - petshop_network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: petshop_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - petshop_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  petshop_network:
+    driver: bridge

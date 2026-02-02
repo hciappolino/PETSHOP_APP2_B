@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Database (Single shared instance)
+  db:
+    image: postgres:15-alpine
+    container_name: petshop_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-petshop_app}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/single_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database/single_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - petshop_prod_net
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend
+  backend:
+    build: ./backend
+    container_name: petshop_backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-petshop_app}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - petshop_prod_net
+    restart: always
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: petshop_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - petshop_prod_net
+    restart: always
+
+volumes:
+  postgres_data:
+
+
+networks:
+  petshop_prod_net:
+    driver: bridge
