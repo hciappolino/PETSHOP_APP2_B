@@ -1,0 +1,74 @@
+import { Router } from 'express';
+import { pool } from '../config/db.js';
+import fs from 'fs';
+import path from 'path';
+
+const router = Router();
+
+router.post('/init-db', async (req, res) => {
+    try {
+        console.log('Iniciando inicialización de la base de datos desde API...');
+        
+        // Leer scripts SQL
+        const schemaPath = path.resolve(__dirname, '../../database/single_schema.sql');
+        const seedPath = path.resolve(__dirname, '../../database/single_seed.sql');
+        
+        const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+        const seedSQL = fs.readFileSync(seedPath, 'utf8');
+        
+        // Ejecutar script de estructura
+        console.log('Ejecutando script de estructura...');
+        await pool.query(schemaSQL);
+        console.log('Estructura de la base de datos creada');
+        
+        // Ejecutar script de datos iniciales
+        console.log('Ejecutando script de datos iniciales...');
+        await pool.query(seedSQL);
+        console.log('Datos iniciales insertados');
+        
+        // Verificar usuarios
+        const usersResult = await pool.query('SELECT id, username, email, rol FROM usuarios');
+        const productsResult = await pool.query('SELECT id, nombre, codigo, stock_actual FROM productos');
+        
+        res.json({
+            success: true,
+            message: 'Base de datos inicializada correctamente',
+            data: {
+                usuarios: usersResult.rows.length,
+                productos: productsResult.rows.length
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error al inicializar la base de datos:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al inicializar la base de datos',
+            error: error.message
+        });
+    }
+});
+
+router.get('/check-db', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT count(*) as table_count 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        `);
+        
+        res.json({
+            success: true,
+            table_count: result.rows[0].table_count
+        });
+    } catch (error) {
+        console.error('Error al verificar base de datos:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al verificar base de datos',
+            error: error.message
+        });
+    }
+});
+
+export default router;
