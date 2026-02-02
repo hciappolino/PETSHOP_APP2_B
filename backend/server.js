@@ -135,8 +135,49 @@ app.use('/api/*', (req, res) => {
     res.status(404).json({ error: 'Ruta API no encontrada' });
 });
 
+// Function to initialize database
+async function initializeDatabase() {
+    try {
+        // Check if database has any tables
+        const result = await pool.query(`
+            SELECT count(*) as table_count 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        `);
+        
+        if (result.rows[0].table_count === 0) {
+            console.log('Base de datos vacía, inicializando...');
+            
+            // Leer y ejecutar scripts SQL
+            const fs = await import('fs');
+            const path = await import('path');
+            
+            const schemaPath = path.resolve(__dirname, '../database/single_schema.sql');
+            const seedPath = path.resolve(__dirname, '../database/single_seed.sql');
+            
+            const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+            const seedSQL = fs.readFileSync(seedPath, 'utf8');
+            
+            await pool.query(schemaSQL);
+            console.log('Estructura de la base de datos creada');
+            
+            await pool.query(seedSQL);
+            console.log('Datos iniciales insertados');
+            
+            console.log('Base de datos inicializada correctamente');
+        } else {
+            console.log('Base de datos ya inicializada');
+        }
+    } catch (error) {
+        console.error('Error al inicializar la base de datos:', error);
+    }
+}
+
 // Start server
 app.listen(PORT, async () => {
+    // Initialize database if needed
+    await initializeDatabase();
+    
     // Verify database structure on startup
     const dbOk = await verifyDatabaseStructure();
     
