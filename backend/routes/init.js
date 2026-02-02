@@ -13,8 +13,19 @@ router.post('/init-db', async (req, res) => {
         const schemaPath = path.resolve(__dirname, '../../database/single_schema.sql');
         const seedPath = path.resolve(__dirname, '../../database/single_seed.sql');
         
+        console.log('Verificando archivos SQL:', schemaPath, seedPath);
+        
+        if (!fs.existsSync(schemaPath)) {
+            throw new Error('Archivo single_schema.sql no encontrado');
+        }
+        if (!fs.existsSync(seedPath)) {
+            throw new Error('Archivo single_seed.sql no encontrado');
+        }
+        
         const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
         const seedSQL = fs.readFileSync(seedPath, 'utf8');
+        
+        console.log('Scripts SQL leídos correctamente');
         
         // Ejecutar script de estructura
         console.log('Ejecutando script de estructura...');
@@ -44,7 +55,8 @@ router.post('/init-db', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error al inicializar la base de datos',
-            error: error.message
+            error: error.message,
+            stack: error.stack
         });
     }
 });

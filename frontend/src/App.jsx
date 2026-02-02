@@ -24,6 +24,7 @@ import StockAjuste from './pages/StockAjuste';
 import MovimientosStock from './pages/MovimientosStock';
 import GestionEmpresas from './pages/GestionEmpresas';
 import InspeccionGranel from './pages/InspeccionGranel';
+import InitDB from './pages/InitDB';
 
 // Componente para manejar la redirección de la raíz
 function RootRedirect() {
@@ -226,6 +227,11 @@ function AppRoutes() {
                 }
             />
 
+            <Route
+                path="/init-db"
+                element={<InitDB />}
+            />
+            
             {/* Redirección por defecto para cualquier ruta no encontrada */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
