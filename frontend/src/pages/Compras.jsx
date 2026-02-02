@@ -66,6 +66,28 @@ export default function Compras() {
         }
     };
 
+    const incrementQuantity = (index) => {
+        setCart(cart.map((item, i) =>
+            i === index ? { 
+                ...item, 
+                cantidad: item.cantidad + 1
+            } : item
+        ));
+    };
+
+    const decrementQuantity = (index) => {
+        const item = cart[index];
+        const newQuantity = item.cantidad - 1;
+        
+        if (newQuantity <= 0) {
+            removeFromCart(index);
+        } else {
+            setCart(cart.map((item, i) =>
+                i === index ? { ...item, cantidad: newQuantity } : item
+            ));
+        }
+    };
+
     const updateQuantity = (index, cantidad) => {
         if (cantidad <= 0) {
             removeFromCart(index);
@@ -263,15 +285,48 @@ export default function Compras() {
                                             ${item.precio_costo.toFixed(2)} x unidad
                                         </div>
                                     </div>
-                                    <input
-                                        type="number"
-                                        className="form-input"
-                                        style={{ width: '70px', textAlign: 'center' }}
-                                        value={item.cantidad}
-                                        onChange={(e) => updateQuantity(index, e.target.value)}
-                                        min={item.tipo_presentacion === 'BOLSA' ? '0.1' : '1'}
-                                        step={item.tipo_presentacion === 'BOLSA' ? '0.1' : '1'}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <button
+                                            className="btn btn-sm"
+                                            style={{ 
+                                                width: '30px', 
+                                                height: '30px', 
+                                                padding: '0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold'
+                                            }}
+                                            onClick={() => decrementQuantity(index)}
+                                        >
+                                            -
+                                        </button>
+                                        <div style={{ 
+                                            minWidth: '40px', 
+                                            textAlign: 'center',
+                                            fontWeight: 'bold',
+                                            fontSize: '14px'
+                                        }}>
+                                            {item.cantidad}
+                                        </div>
+                                        <button
+                                            className="btn btn-sm btn-primary"
+                                            style={{ 
+                                                width: '30px', 
+                                                height: '30px', 
+                                                padding: '0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '16px',
+                                                fontWeight: 'bold'
+                                            }}
+                                            onClick={() => incrementQuantity(index)}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
                                     <div style={{ width: '80px', textAlign: 'right', fontWeight: 'bold' }}>
                                         ${(item.cantidad * item.precio_costo).toFixed(2)}
                                     </div>
