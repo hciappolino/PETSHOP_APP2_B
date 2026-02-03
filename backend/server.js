@@ -86,10 +86,17 @@ let dbInitializationError = null;
 
 // Health check endpoint - waits for database to be ready
 app.get('/health', async (req, res) => {
+    const debugInfo = {
+        timestamp: new Date().toISOString(),
+        dbReady: dbReady,
+        tables: [],
+        tableCount: 0
+    };
+    
     try {
-        // If not ready yet, wait a bit and retry
+        // If not ready yet, try to initialize
         if (!dbReady) {
-            // Try to initialize if not already in progress
+            console.log('[Health] DB not ready, attempting initialization...');
             await initializeDatabase();
         }
         
@@ -97,18 +104,29 @@ app.get('/health', async (req, res) => {
             throw dbInitializationError;
         }
         
-        await pool.query('SELECT 1');
+        // Get table list
+        const tablesResult = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        `);
+        debugInfo.tables = tablesResult.rows.map(r => r.table_name);
+        debugInfo.tableCount = tablesResult.rows.length;
+        
         res.json({
             status: 'OK',
             database: 'connected',
             initialized: dbReady,
-            timestamp: new Date().toISOString()
+            debug: debugInfo
         });
     } catch (error) {
+        console.error('[Health] Error:', error.message);
         res.status(500).json({
             status: 'ERROR',
             database: 'disconnected',
             initialized: dbReady,
+            debug: debugInfo,
             error: error.message
         });
     }
@@ -161,6 +179,8 @@ app.use('/api/*', (req, res) => {
 // Function to initialize database
 async function initializeDatabase() {
     try {
+        console.log('[InitDB] Verificando estado de la base de datos...');
+        
         // Check if database has any tables
         const result = await pool.query(`
             SELECT count(*) as table_count 
@@ -168,35 +188,42 @@ async function initializeDatabase() {
             WHERE table_schema = 'public'
         `);
         
-        const isEmpty = result.rows[0].table_count === '0' || result.rows[0].table_count === 0;
+        const tableCount = parseInt(result.rows[0].table_count);
+        console.log(`[InitDB] Tablas encontradas: ${tableCount}`);
+        
+        const isEmpty = tableCount === 0;
         
         if (isEmpty) {
-            console.log('Base de datos vacía, inicializando...');
+            console.log('[InitDB] Base de datos vacía, inicializando estructura...');
             
             const schemaPath = path.resolve(__dirname, '../database/single_schema.sql');
             const seedPath = path.resolve(__dirname, '../database/single_seed.sql');
             
+            console.log(`[InitDB] Leyendo schema de: ${schemaPath}`);
             const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-            const seedSQL = fs.readFileSync(seedPath, 'utf8');
             
+            console.log('[InitDB] Ejecutando schema...');
             await pool.query(schemaSQL);
-            console.log('Estructura de la base de datos creada');
+            console.log('[InitDB] Estructura de la base de datos creada');
             
+            console.log('[InitDB] Insertando datos iniciales...');
+            const seedSQL = fs.readFileSync(seedPath, 'utf8');
             await pool.query(seedSQL);
-            console.log('Datos iniciales insertados');
+            console.log('[InitDB] Datos iniciales insertados');
         } else {
-            console.log('Base de datos ya inicializada');
+            console.log('[InitDB] Base de datos ya tiene tablas, verificando migraciones...');
         }
         
         // Run migrations
+        console.log('[InitDB] Ejecutando migraciones...');
         await runMigrations();
         
         // Mark as ready
         dbReady = true;
-        console.log('Base de datos lista');
+        console.log('[InitDB] Base de datos lista ✓');
         
     } catch (error) {
-        console.error('Error al inicializar la base de datos:', error);
+        console.error('[InitDB] Error al inicializar la base de datos:', error.message);
         dbInitializationError = error;
         throw error;
     }
