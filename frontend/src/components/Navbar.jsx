@@ -42,6 +42,7 @@ export const Navbar = () => {
                                         <Link to="/clientes">👥 Clientes</Link>
                                         <Link to="/deudores">💳 Deudores</Link>
                                         <Link to="/precios">🏷️ Precios</Link>
+                                        <Link to="/promociones">🎁 Promociones</Link>
                                     </>
                                 )}
                             </div>

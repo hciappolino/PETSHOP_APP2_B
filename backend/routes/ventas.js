@@ -146,6 +146,25 @@ router.post('/', authenticateToken, async (req, res) => {
 
         const ventaId = saleResult.rows[0].id;
 
+        // Register promotion usage
+        const { promociones_aplicadas } = req.body;
+        if (promociones_aplicadas && Array.isArray(promociones_aplicadas)) {
+            for (const promo of promociones_aplicadas) {
+                // Update promotion usage count
+                await client.query(
+                    'UPDATE promociones SET uso_actual = uso_actual + 1 WHERE id = $1',
+                    [promo.promocion_id]
+                );
+                
+                // Record the usage
+                await client.query(
+                    `INSERT INTO promocion_usos (promocion_id, venta_id, cliente_id, descuento_aplicado)
+                     VALUES ($1, $2, $3, $4)`,
+                    [promo.promocion_id, ventaId, cliente_id, promo.descuento_aplicado]
+                );
+            }
+        }
+
         // Insert items and update stock
         for (const item of items) {
             const { producto_id, cantidad, precio_venta, es_granel } = item;

@@ -262,9 +262,61 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_venta_total AFTER INSERT OR UPDATE OR DELETE ON venta_items FOR EACH ROW EXECUTE FUNCTION update_venta_total();
 
--- Prevention of deletion
+-- ============================================
+-- 4. PROMOTIONS TABLES
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS promociones (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    tipo VARCHAR(20) NOT NULL DEFAULT 'porcentaje' CHECK (tipo IN ('porcentaje', 'bogo', 'precio_fijo', 'b2g', 'cantidad')),
+    valor_descuento DECIMAL(10, 2) DEFAULT 0.00,
+    ambito_aplicacion VARCHAR(20) NOT NULL DEFAULT 'producto' CHECK (ambito_aplicacion IN ('producto', 'categoria', 'marca', 'fabricante', 'carrito', 'cliente')),
+    entidad_id INTEGER,
+    cantidad_minima INTEGER DEFAULT 1,
+    fecha_inicio TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_fin TIMESTAMP,
+    activo BOOLEAN DEFAULT true,
+    uso_maximo INTEGER,
+    uso_actual INTEGER DEFAULT 0,
+    prioridad INTEGER DEFAULT 0,
+    stackeable BOOLEAN DEFAULT false,
+    usuario_crea_id INTEGER REFERENCES usuarios(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS promocion_usos (
+    id SERIAL PRIMARY KEY,
+    promocion_id INTEGER NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
+    venta_id INTEGER REFERENCES ventas(id) ON DELETE SET NULL,
+    cliente_id INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
+    descuento_aplicado DECIMAL(12, 2) NOT NULL,
+    used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS promocion_condiciones (
+    id SERIAL PRIMARY KEY,
+    promocion_id INTEGER NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
+    tipo_condicion VARCHAR(30) NOT NULL,
+    valor VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_promociones_activas ON promociones(activo) WHERE activo = true;
+CREATE INDEX idx_promociones_fechas ON promociones(fecha_inicio, fecha_fin);
+CREATE INDEX idx_promocion_usos_promocion_id ON promocion_usos(promocion_id);
+
+-- Trigger for promociones timestamp
+CREATE TRIGGER trigger_update_promociones_timestamp BEFORE UPDATE ON promociones FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ============================================
+-- 5. PREVENTION OF DELETION
+-- ============================================
+
 CREATE OR REPLACE FUNCTION prevent_deletion_with_refs()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 DECLARE 
     cnt INTEGER;
 BEGIN

@@ -7,8 +7,10 @@ export default function POS() {
     const [clientes, setClientes] = useState([]);
     const [cuentasPago, setCuentasPago] = useState([]);
     const [listasPrecios, setListasPrecios] = useState([]);
+    const [promociones, setPromociones] = useState([]);
     const [selectedLista, setSelectedLista] = useState('');
     const [cart, setCart] = useState([]);
+    const [appliedPromociones, setAppliedPromociones] = useState([]);
     const [selectedCliente, setSelectedCliente] = useState('');
     const [selectedCuenta, setSelectedCuenta] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -33,11 +35,12 @@ export default function POS() {
 
     const loadInitialData = async () => {
         try {
-            const [clientRes, cuentasRes, listasRes, sessionRes] = await Promise.all([
+            const [clientRes, cuentasRes, listasRes, sessionRes, promoRes] = await Promise.all([
                 api.get('/clientes?activo=true'),
                 api.get('/cuentas-pago'),
                 api.get('/listas-precios?activo=true'),
-                api.get('/sesiones-caja/current')
+                api.get('/sesiones-caja/current'),
+                api.get('/promociones/activas')
             ]);
 
             setClientes(clientRes.data);
@@ -45,6 +48,7 @@ export default function POS() {
             const cuentasFiltradas = cuentasRes.data.filter(c => c.tipo !== 'EXTERNA');
             setCuentasPago(cuentasFiltradas);
             setListasPrecios(listasRes.data);
+            setPromociones(promoRes.data);
             setHasOpenSession(!!sessionRes.data);
 
             const defaultLista = listasRes.data.find(l => l.es_default) || listasRes.data[0];
@@ -134,7 +138,74 @@ export default function POS() {
     };
 
     const getTotal = () => {
+        const subtotal = cart.reduce((sum, item) => sum + (item.cantidad * item.precio_venta), 0);
+        const discount = calculateTotalDiscount();
+        return Math.max(0, subtotal - discount);
+    };
+
+    const getSubtotal = () => {
         return cart.reduce((sum, item) => sum + (item.cantidad * item.precio_venta), 0);
+    };
+
+    const calculateTotalDiscount = () => {
+        let totalDiscount = 0;
+        
+        appliedPromociones.forEach(promo => {
+            if (promo.ambito_aplicacion === 'carrito') {
+                // Cart-wide discount
+                const subtotal = getSubtotal();
+                if (promo.tipo === 'porcentaje') {
+                    totalDiscount += subtotal * (promo.valor_descuento / 100);
+                } else if (promo.tipo === 'precio_fijo') {
+                    totalDiscount += promo.valor_descuento;
+                }
+            } else {
+                // Product-specific discounts are applied per item
+                cart.forEach(item => {
+                    if (shouldApplyPromoToItem(promo, item)) {
+                        const itemSubtotal = item.cantidad * item.precio_venta;
+                        if (promo.tipo === 'porcentaje') {
+                            totalDiscount += itemSubtotal * (promo.valor_descuento / 100);
+                        } else if (promo.tipo === 'b2g' && item.cantidad >= promo.cantidad_minima) {
+                            // Buy 2 get X% off - apply to second item
+                            const itemsToDiscount = Math.floor(item.cantidad / 2);
+                            totalDiscount += itemsToDiscount * item.precio_venta * (promo.valor_descuento / 100);
+                        } else if (promo.tipo === 'precio_fijo') {
+                            totalDiscount += promo.valor_descuento;
+                        }
+                    }
+                });
+            }
+        });
+        
+        return totalDiscount;
+    };
+
+    const shouldApplyPromoToItem = (promo, item) => {
+        if (promo.ambito_aplicacion === 'producto' && promo.entidad_id === item.producto_id) return true;
+        if (promo.ambito_aplicacion === 'marca' && promo.entidad_nombre === item.marca) return true;
+        if (promo.ambito_aplicacion === 'fabricante' && promo.entidad_nombre === item.fabricante) return true;
+        return false;
+    };
+
+    const getItemDiscount = (item) => {
+        let discount = 0;
+        
+        appliedPromociones.forEach(promo => {
+            if (shouldApplyPromoToItem(promo, item)) {
+                const itemSubtotal = item.cantidad * item.precio_venta;
+                if (promo.tipo === 'porcentaje') {
+                    discount += itemSubtotal * (promo.valor_descuento / 100);
+                } else if (promo.tipo === 'b2g' && item.cantidad >= promo.cantidad_minima) {
+                    const itemsToDiscount = Math.floor(item.cantidad / 2);
+                    discount += itemsToDiscount * item.precio_venta * (promo.valor_descuento / 100);
+                } else if (promo.tipo === 'precio_fijo') {
+                    discount += promo.valor_descuento;
+                }
+            }
+        });
+        
+        return discount;
     };
 
     const handleSale = async () => {
@@ -162,13 +233,20 @@ export default function POS() {
                     es_granel: item.es_granel
                 })),
                 cuenta_pago_id: isCuentaCorriente ? null : parseInt(selectedCuenta),
-                tipo_venta: isCuentaCorriente ? 'CUENTA_CORRIENTE' : 'CONTADO'
-            };
+                tipo_venta: isCuentaCorriente ? 'CUENTA_CORRIENTE' : 'CONTADO',
+                promociones_aplicadas: appliedPromociones.map(p => ({
+                    promocion_id: p.id,
+                    descuento_aplicado: p.ambito_aplicacion === 'carrito' 
+                        ? calculateTotalDiscount() 
+                        : cart.reduce((sum, item) => sum + getItemDiscount(item), 0)
+                }))
+    };
 
             await api.post('/ventas', saleData);
 
             alert('Venta registrada exitosamente');
             setCart([]);
+            setAppliedPromociones([]);
             setSelectedCliente('');
             // Reset payment to default cash account
             const efectivo = cuentasPago.find(c => c.nombre === 'Efectivo');

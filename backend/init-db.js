@@ -1,8 +1,50 @@
 import { pool } from './config/db.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+async function runMigrations() {
+    const migrationsDir = path.resolve(__dirname, '../database/migrations');
+    
+    // Get list of migration files sorted by name
+    const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+    
+    // Get already executed migrations
+    const result = await pool.query(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'migrations_log'"
+    );
+    
+    let alreadyRun = [];
+    if (result.rows.length > 0) {
+        const logResult = await pool.query('SELECT filename FROM migrations_log');
+        alreadyRun = logResult.rows.map(r => r.filename);
+    } else {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS migrations_log (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+    
+    // Run new migrations
+    for (const file of files) {
+        if (!alreadyRun.includes(file)) {
+            console.log(`Ejecutando migración: ${file}`);
+            const migrationSQL = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+            await pool.query(migrationSQL);
+            await pool.query('INSERT INTO migrations_log (filename) VALUES ($1)', [file]);
+            console.log(`Migración ${file} completada`);
+        } else {
+            console.log(`Migración ${file} ya ejecutada`);
+        }
+    }
+}
 
 async function initDatabase() {
     try {
@@ -24,6 +66,11 @@ async function initDatabase() {
         console.log('Ejecutando script de datos iniciales...');
         await pool.query(seedSQL);
         console.log('Datos iniciales insertados');
+        
+        // Ejecutar migraciones
+        console.log('Ejecutando migraciones...');
+        await runMigrations();
+        console.log('Migraciones completadas');
         
         console.log('Base de datos inicializada correctamente');
         

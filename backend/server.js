@@ -22,6 +22,7 @@ import reportesRoutes from './routes/reportes.js';
 import debugRoutes from './routes/debug.js';
 import initRoutes from './routes/init-simple.js';
 import usuariosRoutes from './routes/usuarios.js';
+import promocionesRoutes from './routes/promociones.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -114,6 +115,7 @@ app.use('/api/precios', preciosRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/init', initRoutes);
+app.use('/api/promociones', promocionesRoutes);
 
 // Serve static files from frontend build
 app.use(express.static(path.join(__dirname, '../frontend/dist')));

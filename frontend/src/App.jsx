@@ -25,6 +25,7 @@ import MovimientosStock from './pages/MovimientosStock';
 import GestionEmpresas from './pages/GestionEmpresas';
 import InspeccionGranel from './pages/InspeccionGranel';
 import InitDB from './pages/InitDB';
+import Promociones from './pages/Promociones';
 
 // Componente para manejar la redirección de la raíz
 function RootRedirect() {
@@ -178,6 +179,15 @@ function AppRoutes() {
                 element={
                     <ProtectedRoute allowedRoles={['admin', 'gerente']}>
                         <Precios />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/promociones"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <Promociones />
                     </ProtectedRoute>
                 }
             />
