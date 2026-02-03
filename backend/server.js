@@ -24,6 +24,7 @@ import initRoutes from './routes/init-simple.js';
 import usuariosRoutes from './routes/usuarios.js';
 import promocionesRoutes from './routes/promociones.js';
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -79,19 +80,35 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check endpoint
+// Flag to track if database is ready
+let dbReady = false;
+let dbInitializationError = null;
+
+// Health check endpoint - waits for database to be ready
 app.get('/health', async (req, res) => {
     try {
+        // If not ready yet, wait a bit and retry
+        if (!dbReady) {
+            // Try to initialize if not already in progress
+            await initializeDatabase();
+        }
+        
+        if (dbInitializationError) {
+            throw dbInitializationError;
+        }
+        
         await pool.query('SELECT 1');
         res.json({
             status: 'OK',
             database: 'connected',
+            initialized: dbReady,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         res.status(500).json({
             status: 'ERROR',
             database: 'disconnected',
+            initialized: dbReady,
             error: error.message
         });
     }
@@ -151,12 +168,10 @@ async function initializeDatabase() {
             WHERE table_schema = 'public'
         `);
         
-        if (result.rows[0].table_count === 0) {
+        const isEmpty = result.rows[0].table_count === '0' || result.rows[0].table_count === 0;
+        
+        if (isEmpty) {
             console.log('Base de datos vacía, inicializando...');
-            
-            // Leer y ejecutar scripts SQL
-            const fs = await import('fs');
-            const path = await import('path');
             
             const schemaPath = path.resolve(__dirname, '../database/single_schema.sql');
             const seedPath = path.resolve(__dirname, '../database/single_seed.sql');
@@ -169,13 +184,60 @@ async function initializeDatabase() {
             
             await pool.query(seedSQL);
             console.log('Datos iniciales insertados');
-            
-            console.log('Base de datos inicializada correctamente');
         } else {
             console.log('Base de datos ya inicializada');
         }
+        
+        // Run migrations
+        await runMigrations();
+        
+        // Mark as ready
+        dbReady = true;
+        console.log('Base de datos lista');
+        
     } catch (error) {
         console.error('Error al inicializar la base de datos:', error);
+        dbInitializationError = error;
+        throw error;
+    }
+}
+
+// Function to run migrations
+async function runMigrations() {
+    const migrationsDir = path.resolve(__dirname, '../database/migrations');
+    
+    const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+    
+    const result = await pool.query(
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'migrations_log'"
+    );
+    
+    let alreadyRun = [];
+    if (result.rows.length > 0) {
+        const logResult = await pool.query('SELECT filename FROM migrations_log');
+        alreadyRun = logResult.rows.map(r => r.filename);
+    } else {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS migrations_log (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+    
+    for (const file of files) {
+        if (!alreadyRun.includes(file)) {
+            console.log(`Ejecutando migración: ${file}`);
+            const migrationSQL = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+            await pool.query(migrationSQL);
+            await pool.query('INSERT INTO migrations_log (filename) VALUES ($1)', [file]);
+            console.log(`Migración ${file} completada`);
+        } else {
+            console.log(`Migración ${file} ya ejecutada`);
+        }
     }
 }
 

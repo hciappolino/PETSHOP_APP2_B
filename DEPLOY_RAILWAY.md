@@ -72,10 +72,24 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ---
 
 ## Paso 7: Inicializar la Base de Datos
+
+**¡NUEVO! La base de datos ahora se inicializa automáticamente al deployar.**
+
+El servidor ejecutará automáticamente:
+1. El script de estructura (`single_schema.sql`)
+2. Los datos iniciales (`single_seed.sql`)
+3. Las migraciones pendientes
+
+Si por alguna razón necesitas inicializar manualmente:
 1. En Railway, ve a la pestaña "Data" del PostgreSQL
 2. Abre el "Query Runner"
 3. Copia y pega el contenido de `database/single_schema.sql` y ejecútalo
 4. Copia y pega el contenido de `database/single_seed.sql` y ejecútalo
+
+### Verificación del Deploy
+- El health check esperará hasta 180 segundos a que la DB se inicialice
+- Verifica los logs del deployment para confirmar la inicialización
+- Endpoint de health: `https://tu-dominio.railway.app/health`
 
 ---
 
