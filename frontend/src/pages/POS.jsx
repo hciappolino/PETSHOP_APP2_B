@@ -445,7 +445,6 @@ export default function POS() {
                                 <button
                                     className="btn btn-sm btn-primary"
                                     onClick={() => handleAddToCart(producto, false)}
-                                    disabled={producto.stock_actual <= 0}
                                 >
                                     + Unidad
                                 </button>
