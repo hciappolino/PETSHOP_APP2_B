@@ -16,12 +16,15 @@ VALUES ('gerente', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu
 INSERT INTO listas_precios (nombre, descripcion, es_default, activo) 
 VALUES ('Minorista', 'Lista de precios estándar', true, true);
 
--- 4. Payment accounts
-INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, activo) 
-VALUES ('Efectivo', 'EFECTIVO', 0.00, true);
+-- 4. Payment accounts (base)
+INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, es_caja_operativa, es_caja_fondo, visible_pos, es_contabilizada, activo) 
+VALUES ('Caja Operativa', 'EFECTIVO', 0.00, true, false, true, true, true);
 
-INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, activo) 
-VALUES ('Banco', 'BANCO', 0.00, true);
+INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, es_caja_operativa, es_caja_fondo, visible_pos, es_contabilizada, activo) 
+VALUES ('Caja Fondo', 'EFECTIVO', 0.00, false, true, false, true, true);
+
+INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, es_caja_operativa, es_caja_fondo, visible_pos, es_contabilizada, activo) 
+VALUES ('Banco', 'BANCO', 0.00, false, false, true, true, true);
 
 -- 5. Sample providers
 INSERT INTO proveedores (nombre, cuit, contacto, telefono, email, direccion, activo)

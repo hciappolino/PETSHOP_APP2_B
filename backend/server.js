@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { pool } from './config/db.js';
@@ -20,7 +20,7 @@ import listasPreciosRoutes from './routes/listas_precios.js';
 import preciosRoutes from './routes/precios.js';
 import reportesRoutes from './routes/reportes.js';
 import debugRoutes from './routes/debug.js';
-import initRoutes from './routes/init-simple.js';
+import initRoutes from './routes/init.js';
 import usuariosRoutes from './routes/usuarios.js';
 import promocionesRoutes from './routes/promociones.js';
 
@@ -190,14 +190,22 @@ async function initializeDatabase() {
         
         const tableCount = parseInt(result.rows[0].table_count);
         console.log(`[InitDB] Tablas encontradas: ${tableCount}`);
-        
-        const isEmpty = tableCount === 0;
-        
+
+        // Consider DB initialized only if core tables exist
+        const coreCheck = await pool.query(`
+            SELECT EXISTS(
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'usuarios'
+            ) AS has_core
+        `);
+        const hasCore = coreCheck.rows[0].has_core === true;
+        const isEmpty = !hasCore;
+
         if (isEmpty) {
             console.log('[InitDB] Base de datos vacía, inicializando estructura...');
             
             const schemaPath = path.resolve(__dirname, '../database/single_schema.sql');
-            const seedPath = path.resolve(__dirname, '../database/single_seed.sql');
+            const seedPath = path.resolve(__dirname, '../database/single_seed_min.sql');
             
             console.log(`[InitDB] Leyendo schema de: ${schemaPath}`);
             const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
@@ -214,9 +222,33 @@ async function initializeDatabase() {
             console.log('[InitDB] Base de datos ya tiene tablas, verificando migraciones...');
         }
         
-        // Run migrations
-        console.log('[InitDB] Ejecutando migraciones...');
-        await runMigrations();
+        // Run migrations if any exist (also for new DB after schema)
+        const migrationsDir = path.resolve(__dirname, '../database/migrations');
+        const migrationFiles = fs.existsSync(migrationsDir)
+            ? fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql'))
+            : [];
+        if (migrationFiles.length > 0) {
+            console.log('[InitDB] Ejecutando migraciones...');
+            await runMigrations();
+        } else {
+            console.log('[InitDB] Sin migraciones pendientes');
+        }
+        
+        // Fix: Ensure view has marca_nombre and fabricante_nombre
+        await fixPromocionesView();
+
+        // Backfill verification: count promos missing entidad_nombre for marca/fabricante
+        try {
+            const missingEntidadNombre = await pool.query(`
+                SELECT COUNT(*) AS total
+                FROM promociones
+                WHERE ambito_aplicacion IN ('marca', 'fabricante')
+                  AND (entidad_nombre IS NULL OR entidad_nombre = '')
+            `);
+            console.log(`[InitDB] Promos marca/fabricante sin entidad_nombre: ${missingEntidadNombre.rows[0].total}`);
+        } catch (error) {
+            console.warn('[InitDB] Warning: No se pudo verificar entidad_nombre en promociones:', error.message);
+        }
         
         // Mark as ready
         dbReady = true;
@@ -265,6 +297,46 @@ async function runMigrations() {
         } else {
             console.log(`Migración ${file} ya ejecutada`);
         }
+    }
+}
+
+// Fix: Ensure v_promociones_actuales view has marca_nombre, fabricante_nombre, entidad_nombre
+async function fixPromocionesView() {
+    try {
+        const result = await pool.query(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'v_promociones_actuales' 
+              AND column_name IN ('marca_nombre', 'fabricante_nombre', 'entidad_nombre')
+        `);
+        
+        const hasMarca = result.rows.some(r => r.column_name === 'marca_nombre');
+        const hasFabricante = result.rows.some(r => r.column_name === 'fabricante_nombre');
+        const hasEntidadNombre = result.rows.some(r => r.column_name === 'entidad_nombre');
+        
+        if (!hasMarca || !hasFabricante || !hasEntidadNombre) {
+            console.log('[InitDB] Corrigiendo vista v_promociones_actuales...');
+            await pool.query(`
+                CREATE OR REPLACE VIEW v_promociones_actuales AS
+                SELECT 
+                    p.*,
+                    pr.nombre as producto_nombre,
+                    lp.nombre as categoria_nombre,
+                    pr.marca as marca_nombre,
+                    pr.fabricante as fabricante_nombre,
+                    p.entidad_nombre as entidad_nombre
+                FROM promociones p
+                LEFT JOIN productos pr ON p.ambito_aplicacion = 'producto' AND p.entidad_id = pr.id
+                LEFT JOIN listas_precios lp ON p.ambito_aplicacion = 'categoria' AND p.entidad_id = lp.id
+                WHERE p.activo = true
+                  AND (p.fecha_fin IS NULL OR p.fecha_fin > CURRENT_TIMESTAMP)
+                  AND (p.uso_maximo IS NULL OR p.uso_actual < p.uso_maximo)
+            `);
+            console.log('[InitDB] Vista v_promociones_actuales actualizada ✓');
+        } else {
+            console.log('[InitDB] Vista v_promociones_actuales OK');
+        }
+    } catch (error) {
+        console.warn('[InitDB] Warning: No se pudo corregir la vista de promociones:', error.message);
     }
 }
 

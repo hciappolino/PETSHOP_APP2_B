@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function Compras() {
     const [proveedores, setProveedores] = useState([]);
     const [productos, setProductos] = useState([]);
+    const [cuentas, setCuentas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -14,6 +15,12 @@ export default function Compras() {
     const [selectedProveedor, setSelectedProveedor] = useState('');
     const [numeroFactura, setNumeroFactura] = useState('');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+    const [pagoInmediato, setPagoInmediato] = useState(false);
+    const [cuentaPago, setCuentaPago] = useState('');
+    const [montoPago, setMontoPago] = useState('');
+    const [montoManual, setMontoManual] = useState(false);
+    const [referenciaPago, setReferenciaPago] = useState('');
+    const [notasPago, setNotasPago] = useState('');
 
     const { isAdmin, isGerente } = useAuth();
     const canEdit = isAdmin || isGerente;
@@ -25,12 +32,14 @@ export default function Compras() {
     const loadInitialData = async () => {
         try {
             setLoading(true);
-            const [proveedoresRes, productosRes] = await Promise.all([
+            const [proveedoresRes, productosRes, cuentasRes] = await Promise.all([
                 api.get('/proveedores?activo=true'),
-                api.get('/productos?activo=true')
+                api.get('/productos?activo=true'),
+                api.get('/compras/cuentas/listar')
             ]);
             setProveedores(proveedoresRes.data);
             setProductos(productosRes.data);
+            setCuentas(cuentasRes.data || []);
         } catch (error) {
             setError('Error al cargar datos: ' + (error.response?.data?.error || error.message));
         } finally {
@@ -106,6 +115,12 @@ export default function Compras() {
         return cart.reduce((sum, item) => sum + (item.cantidad * item.precio_costo), 0);
     };
 
+    useEffect(() => {
+        if (pagoInmediato && !montoManual) {
+            setMontoPago(getTotal().toFixed(2));
+        }
+    }, [cart, pagoInmediato, montoManual]);
+
     const handleSubmit = async () => {
         if (cart.length === 0) {
             alert('Debe agregar al menos un producto');
@@ -126,13 +141,24 @@ export default function Compras() {
                     producto_id: item.producto_id,
                     cantidad: item.cantidad,
                     precio_costo: item.precio_costo
-                }))
+                })),
+                pago_inmediato: pagoInmediato,
+                cuenta_pago_id: pagoInmediato ? parseInt(cuentaPago) : null,
+                monto_pagado: pagoInmediato ? parseFloat(montoPago || getTotal()) : null,
+                referencia_pago: pagoInmediato ? referenciaPago : null,
+                notas_pago: pagoInmediato ? notasPago : null
             });
             
             alert('Compra registrada exitosamente');
             setCart([]);
             setSelectedProveedor('');
             setNumeroFactura('');
+            setPagoInmediato(false);
+            setCuentaPago('');
+            setMontoPago('');
+            setMontoManual(false);
+            setReferenciaPago('');
+            setNotasPago('');
         } catch (error) {
             setError('Error al registrar compra: ' + (error.response?.data?.error || error.message));
         } finally {
@@ -153,6 +179,7 @@ export default function Compras() {
             <div className="flex gap-lg mb-lg" style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '1rem' }}>
                 <a href="/app/proveedores" className="text-lg font-semibold" style={{ color: 'var(--text-secondary)', textDecoration: 'none', opacity: 0.7 }}>Proveedores</a>
                 <a href="/app/compras" className="text-lg font-semibold" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>Compras</a>
+                <a href="/app/compras/gastos" className="text-lg font-semibold" style={{ color: 'var(--text-secondary)', textDecoration: 'none', opacity: 0.7 }}>Gastos/Servicios</a>
             </div>
 
             <div className="flex justify-between items-center mb-lg">
@@ -345,6 +372,83 @@ export default function Compras() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <span style={{ fontSize: '18px' }}>TOTAL:</span>
                             <strong style={{ fontSize: '24px' }}>${getTotal().toFixed(2)}</strong>
+                        </div>
+
+                        <div className="mb-md">
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={pagoInmediato}
+                                    onChange={(e) => {
+                                        setPagoInmediato(e.target.checked);
+                                        setMontoManual(false);
+                                    }}
+                                />
+                                Pagar en el momento
+                            </label>
+                            {pagoInmediato && (
+                                <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Cuenta de pago *</label>
+                                        <select
+                                            className="form-select"
+                                            value={cuentaPago}
+                                            onChange={(e) => setCuentaPago(e.target.value)}
+                                        >
+                                            <option value="">Seleccione...</option>
+                                            {cuentas.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Monto a pagar</label>
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            <input
+                                                type="number"
+                                                className="form-input"
+                                                min="0"
+                                                step="0.01"
+                                                value={montoPago}
+                                                onChange={(e) => {
+                                                    setMontoPago(e.target.value);
+                                                    setMontoManual(true);
+                                                }}
+                                            />
+                                            <button
+                                                className="btn btn-outline"
+                                                type="button"
+                                                onClick={() => {
+                                                    setMontoPago(getTotal().toFixed(2));
+                                                    setMontoManual(false);
+                                                }}
+                                            >
+                                                Total
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Referencia</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={referenciaPago}
+                                            onChange={(e) => setReferenciaPago(e.target.value)}
+                                            placeholder="Comprobante / Ticket"
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Notas</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={notasPago}
+                                            onChange={(e) => setNotasPago(e.target.value)}
+                                            placeholder="Observaciones"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         
                         <button

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import api from '../api';
 
 // Credenciales para acceso a la página de inicialización de base de datos
@@ -442,7 +442,7 @@ function InitDB() {
                 <div>
                   <strong>⚠️ Base de datos vacía</strong>
                   <br />
-                  Necesita inicializar la estructura y datos
+                  Necesita inicializar la estructura y datos mínimos
                 </div>
               )}
             </div>
@@ -469,7 +469,7 @@ function InitDB() {
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <button 
               onClick={() => initDB(true)}
-              disabled={loading}
+              disabled={loading || (dbStatus?.table_count > 0)}
               style={{
                 padding: '0.875rem 1.5rem',
                 background: loading ? '#a0aec0' : '#48bb78',
@@ -490,7 +490,7 @@ function InitDB() {
 
             <button 
               onClick={() => initDB(false)}
-              disabled={loading}
+              disabled={loading || (dbStatus?.table_count > 0)}
               style={{
                 padding: '0.875rem 1.5rem',
                 background: loading ? '#a0aec0' : '#3182ce',
@@ -506,10 +506,23 @@ function InitDB() {
               onMouseOver={(e) => !loading && (e.target.style.background = '#2c5282')}
               onMouseOut={(e) => !loading && (e.target.style.background = '#3182ce')}
             >
-              {loading ? 'Inicializando...' : 'Inicializar Base de Datos Vacía'}
+              {loading ? 'Inicializando...' : 'Inicializar Base de Datos Mínima'}
             </button>
           </div>
 
+
+          {dbStatus?.table_count > 0 && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '1rem', 
+              background: '#fef5e7',
+              color: '#7c2d12',
+              borderRadius: '8px',
+              border: '1px solid #fbd38d'
+            }}>
+              Para inicializar nuevamente, primero debe eliminar la base de datos.
+            </div>
+          )}
           {result && (
             <div style={{ 
               marginTop: '1.5rem', 
@@ -1195,7 +1208,7 @@ function InitDB() {
             <strong>Inicializar con Datos de Ejemplo:</strong> Crea la estructura de tablas y agrega datos de prueba para probar el sistema.
           </p>
           <p>
-            <strong>Inicializar Base de Datos Vacía:</strong> Crea solo la estructura de tablas sin datos de ejemplo.
+            <strong>Inicializar Base de Datos Mínima:</strong> Crea la estructura y los datos m�nimos (admin y configuraci�n b�sica).
           </p>
           <p>
             <strong>Eliminar Toda la Base de Datos:</strong> Borra todas las tablas y datos. Use con extremo cuidado.
@@ -1216,3 +1229,5 @@ function InitDB() {
 }
 
 export default InitDB;
+
+

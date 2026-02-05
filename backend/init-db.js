@@ -52,7 +52,10 @@ async function initDatabase() {
         
         // Leer scripts SQL
         const schemaPath = path.resolve(__dirname, '../database/single_schema.sql');
-        const seedPath = path.resolve(__dirname, '../database/single_seed.sql');
+        const withSeeds = process.env.INIT_WITH_SEEDS === 'true';
+        const seedPath = withSeeds
+            ? path.resolve(__dirname, '../database/single_seed.sql')
+            : path.resolve(__dirname, '../database/single_seed_min.sql');
         
         const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
         const seedSQL = fs.readFileSync(seedPath, 'utf8');
@@ -63,14 +66,12 @@ async function initDatabase() {
         console.log('Estructura de la base de datos creada');
         
         // Ejecutar script de datos iniciales
-        console.log('Ejecutando script de datos iniciales...');
+        console.log(withSeeds ? 'Ejecutando datos de ejemplo...' : 'Ejecutando datos mínimos...');
         await pool.query(seedSQL);
         console.log('Datos iniciales insertados');
         
-        // Ejecutar migraciones
-        console.log('Ejecutando migraciones...');
-        await runMigrations();
-        console.log('Migraciones completadas');
+        // No ejecutar migraciones en una base nueva (el schema ya está actualizado)
+        console.log('Base nueva: se omiten migraciones');
         
         console.log('Base de datos inicializada correctamente');
         

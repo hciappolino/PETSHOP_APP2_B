@@ -12,7 +12,7 @@ const router = express.Router();
 // Get all products
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { activo, tipo_presentacion, search, bajo_stock, lista_id } = req.query;
+        const { activo, tipo_presentacion, search, bajo_stock, stock_negativo, lista_id } = req.query;
 
         // Get default lista_id if not specified
         let listaId = lista_id;
@@ -56,6 +56,10 @@ router.get('/', authenticateToken, async (req, res) => {
 
         if (bajo_stock === 'true') {
             query += ' AND p.stock_actual <= p.stock_minimo';
+        }
+
+        if (stock_negativo === 'true') {
+            query += ' AND p.stock_actual < 0';
         }
 
         query += ' ORDER BY p.nombre';
@@ -162,7 +166,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (
 });
 
 // Adjust stock
-router.post('/:id/ajustar-stock', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/:id/ajustar-stock', authenticateToken, async (req, res) => {
     const client = await pool.connect();
 
     try {
@@ -190,10 +194,7 @@ router.post('/:id/ajustar-stock', authenticateToken, authorizeRole('admin', 'ger
         const cantidadAjuste = parseFloat(cantidad);
         const stockNuevo = stockAnterior + cantidadAjuste;
 
-        if (stockNuevo < 0) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'El stock no puede ser negativo' });
-        }
+        // Permitimos stock negativo para ajustes manuales
 
         await client.query(
             'UPDATE productos SET stock_actual = $1 WHERE id = $2',
@@ -230,8 +231,8 @@ router.post('/:id/ajustar-stock', authenticateToken, authorizeRole('admin', 'ger
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Adjust stock error:', error);
-        res.status(500).json({ error: 'Error al ajustar stock' });
+        console.error('Adjust stock error:', error.message, error.stack);
+        res.status(500).json({ error: 'Error al ajustar stock: ' + error.message });
     } finally {
         client.release();
     }

@@ -11,7 +11,8 @@ export default function Productos() {
     const [filter, setFilter] = useState({
         activo: 'true',
         tipo_presentacion: '',
-        bajo_stock: 'false'
+        bajo_stock: 'false',
+        stock_negativo: 'false'
     });
 
     // Modals state
@@ -49,6 +50,18 @@ export default function Productos() {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAjusteStock = async (productoId, cantidad) => {
+        try {
+            await api.post(`/productos/${productoId}/ajustar-stock`, {
+                cantidad: cantidad,
+                motivo: 'AJUSTE'
+            });
+            loadProductos();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Error al ajustar stock');
         }
     };
 
@@ -132,7 +145,13 @@ export default function Productos() {
             <tr><td colSpan="8" className="text-center">No se encontraron productos</td></tr>
         );
     } else {
-        rows = productos.map(p => (
+        rows = productos.map(p => {
+            const stockActual = parseFloat(p.stock_actual || 0);
+            const stockMinimo = parseFloat(p.stock_minimo || 0);
+            const esStockNegativo = stockActual < 0;
+            const esStockBajo = stockActual >= 0 && stockActual <= stockMinimo;
+            
+            return (
             <tr key={p.id}>
                 <td><span className="badge badge-outline">{p.codigo}</span></td>
                 <td>
@@ -144,38 +163,60 @@ export default function Productos() {
                 </td>
                 <td>{p.tipo_animal || 'OTROS'}</td>
                 <td>{p.tipo_presentacion}</td>
-                <td>{p.factor_conversion}</td>
-                <td>
-                    <span className={parseFloat(p.stock_actual || 0) <= parseFloat(p.stock_minimo || 0) ? 'text-error font-bold' : ''}>
-                        {p.stock_actual}
+                <td style={{ fontSize: '18px', fontWeight: 'bold' }}>{p.factor_conversion}</td>
+                <td style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                    <span 
+                        className={esStockNegativo ? 'stock-negativo' : (esStockBajo ? 'text-error font-bold' : '')}
+                        style={{ 
+                            backgroundColor: esStockNegativo ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+                            padding: '4px 8px',
+                            borderRadius: '4px'
+                        }}
+                    >
+                        {Math.round(stockActual)}
                     </span>
                 </td>
-                <td>{p.stock_minimo}</td>
+                <td style={{ fontSize: '16px', fontWeight: 'bold' }}>{Math.round(p.stock_minimo)}</td>
                 {canEdit && (
                     <td>
-                        <button
-                            className="btn btn-sm btn-outline"
-                            onClick={() => {
-                                setSelectedProducto(p);
-                                setFormData({
-                                    nombre: p.nombre || '',
-                                    codigo: p.codigo || '',
-                                    fabricante: p.fabricante || '',
-                                    marca: p.marca || '',
-                                    tipo_animal: p.tipo_animal || 'OTROS',
-                                    tipo_presentacion: p.tipo_presentacion || 'BOLSA',
-                                    factor_conversion: p.factor_conversion || 1,
-                                    stock_minimo: p.stock_minimo || 0
-                                });
-                                setShowFormModal(true);
-                            }}
-                        >
-                            Editar
-                        </button>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            <button 
+                                className="btn btn-sm btn-outline"
+                                style={{ padding: '4px 8px' }}
+                                onClick={() => handleAjusteStock(p.id, 1)}
+                                title="Agregar 1"
+                            >+</button>
+                            <button 
+                                className="btn btn-sm btn-outline"
+                                style={{ padding: '4px 8px' }}
+                                onClick={() => handleAjusteStock(p.id, -1)}
+                                title="Restar 1"
+                            >-</button>
+                            <button
+                                className="btn btn-sm btn-outline"
+                                onClick={() => {
+                                    setSelectedProducto(p);
+                                    setFormData({
+                                        nombre: p.nombre || '',
+                                        codigo: p.codigo || '',
+                                        fabricante: p.fabricante || '',
+                                        marca: p.marca || '',
+                                        tipo_animal: p.tipo_animal || 'OTROS',
+                                        tipo_presentacion: p.tipo_presentacion || 'BOLSA',
+                                        factor_conversion: p.factor_conversion || 1,
+                                        stock_minimo: p.stock_minimo || 0
+                                    });
+                                    setShowFormModal(true);
+                                }}
+                            >
+                                Editar
+                            </button>
+                        </div>
                     </td>
                 )}
             </tr>
-        ));
+            );
+        });
     }
 
     return (
@@ -246,6 +287,14 @@ export default function Productos() {
                     <option value="">Todas las presentaciones</option>
                     <option value="BOLSA">Bolsa</option>
                     <option value="UNIDAD">Unidad</option>
+                </select>
+                <select 
+                    className="form-input w-48"
+                    value={filter.stock_negativo}
+                    onChange={(e) => setFilter({...filter, stock_negativo: e.target.value})}
+                >
+                    <option value="false">Todo el Stock</option>
+                    <option value="true">Solo Stock Negativo</option>
                 </select>
             </div>
 

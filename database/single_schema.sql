@@ -119,6 +119,9 @@ CREATE TABLE cuentas_pago (
     nombre VARCHAR(50) NOT NULL UNIQUE,
     tipo VARCHAR(20) CHECK (tipo IN ('EFECTIVO', 'BANCO', 'DIGITAL', 'EXTERNA')),
     saldo_actual DECIMAL(12, 2) DEFAULT 0.00,
+    es_caja_operativa BOOLEAN DEFAULT false,
+    es_caja_fondo BOOLEAN DEFAULT false,
+    visible_pos BOOLEAN DEFAULT true,
     es_contabilizada BOOLEAN DEFAULT true,
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -178,6 +181,7 @@ CREATE TABLE ventas (
     lista_precio_id INTEGER REFERENCES listas_precios(id) ON DELETE SET NULL,
     fecha TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     total DECIMAL(12, 2) DEFAULT 0.00,
+    descuento_total DECIMAL(12, 2) DEFAULT 0.00,
     cuenta_pago_id INTEGER REFERENCES cuentas_pago(id),
     sesion_caja_id INTEGER REFERENCES sesiones_caja(id),
     usuario_id INTEGER REFERENCES usuarios(id),
@@ -214,7 +218,7 @@ CREATE TABLE fondos_movimientos (
     cuenta_id INTEGER NOT NULL REFERENCES cuentas_pago(id) ON DELETE RESTRICT,
     tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
     monto DECIMAL(12, 2) NOT NULL,
-    motivo VARCHAR(30) NOT NULL CHECK (motivo IN ('VENTA', 'COMPRA', 'GASTO', 'DEPOSITO', 'RETIRO', 'AJUSTE')),
+    motivo VARCHAR(30) NOT NULL CHECK (motivo IN ('VENTA', 'COMPRA', 'GASTO', 'DEPOSITO', 'RETIRO', 'AJUSTE', 'APERTURA_CAJA', 'CIERRE_CAJA', 'AJUSTE_CAJA')),
     referencia_id INTEGER,
     sesion_caja_id INTEGER REFERENCES sesiones_caja(id),
     saldo_anterior DECIMAL(12, 2),
@@ -274,6 +278,7 @@ CREATE TABLE IF NOT EXISTS promociones (
     valor_descuento DECIMAL(10, 2) DEFAULT 0.00,
     ambito_aplicacion VARCHAR(20) NOT NULL DEFAULT 'producto' CHECK (ambito_aplicacion IN ('producto', 'categoria', 'marca', 'fabricante', 'carrito', 'cliente')),
     entidad_id INTEGER,
+    entidad_nombre VARCHAR(100),
     cantidad_minima INTEGER DEFAULT 1,
     fecha_inicio TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_fin TIMESTAMP,
@@ -316,7 +321,7 @@ CREATE TRIGGER trigger_update_promociones_timestamp BEFORE UPDATE ON promociones
 -- ============================================
 
 CREATE OR REPLACE FUNCTION prevent_deletion_with_refs()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 DECLARE 
     cnt INTEGER;
 BEGIN

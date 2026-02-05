@@ -86,8 +86,8 @@ export default function Dashboard() {
 
             <div className="stats-grid">
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
-                        📦
+                    <div className="stat-icon">
+                        <span style={{ fontSize: '1.8rem' }}>📦</span>
                     </div>
                     <div className="stat-content">
                         <h3>{stats.productosTotal}</h3>
@@ -97,8 +97,8 @@ export default function Dashboard() {
 
                 {!isVendedor && (
                     <div className="stat-card">
-                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
-                            ⚠️
+                        <div className="stat-icon">
+                            <span style={{ fontSize: '1.8rem' }}>⚠️</span>
                         </div>
                         <div className="stat-content">
                             <h3>{stats.productosBajoStock}</h3>
@@ -108,8 +108,8 @@ export default function Dashboard() {
                 )}
 
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: stats.sesionCajaAbierta ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-                        💰
+                    <div className="stat-icon">
+                        <span style={{ fontSize: '1.8rem' }}>💰</span>
                     </div>
                     <div className="stat-content">
                         <h3>{stats.sesionCajaAbierta ? 'Abierta' : 'Cerrada'}</h3>
@@ -118,8 +118,8 @@ export default function Dashboard() {
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' }}>
-                        🛒
+                    <div className="stat-icon">
+                        <span style={{ fontSize: '1.8rem' }}>🛒️</span>
                     </div>
                     <div className="stat-content">
                         <h3>{stats.ventasHoy}</h3>
@@ -129,8 +129,8 @@ export default function Dashboard() {
 
                 {!isVendedor && (
                     <div className="stat-card">
-                        <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}>
-                            💲
+                        <div className="stat-icon">
+                            <span style={{ fontSize: '1.8rem' }}>💵</span>
                         </div>
                         <div className="stat-content">
                             <h3>${parseFloat(stats.valorStockVenta || 0).toFixed(2)}</h3>

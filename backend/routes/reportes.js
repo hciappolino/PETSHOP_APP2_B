@@ -37,7 +37,15 @@ router.get('/ventas-del-dia', authenticateToken, authorizeRole('admin', 'gerente
                 p.marca as producto_marca,
                 vi.cantidad,
                 vi.precio_venta as precio_unitario,
-                (vi.cantidad * vi.precio_venta) as subtotal
+                CASE 
+                    WHEN COALESCE(v.descuento_total, 0) > 0 THEN
+                        (vi.cantidad * vi.precio_venta)
+                        - (
+                            (vi.cantidad * vi.precio_venta)
+                            / NULLIF(SUM(vi.cantidad * vi.precio_venta) OVER (PARTITION BY v.id), 0)
+                        ) * v.descuento_total
+                    ELSE (vi.cantidad * vi.precio_venta)
+                END as subtotal
              FROM ventas v
              LEFT JOIN clientes c ON v.cliente_id = c.id
              LEFT JOIN venta_items vi ON v.id = vi.venta_id
@@ -117,6 +125,27 @@ router.get('/ganancias-estimadas', authenticateToken, authorizeRole('admin'), as
     } catch (error) {
         console.error('Profit report error:', error);
         res.status(500).json({ error: 'Error al obtener reporte de ganancias' });
+    }
+});
+
+// Monthly expenses report (services/insumos without stock)
+router.get('/gastos-del-mes', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                DATE(cf.fecha) as fecha,
+                SUM(cr.subtotal) as total_gastos
+             FROM compras_renglones cr
+             JOIN compras_facturas cf ON cr.factura_id = cf.id
+             WHERE cr.producto_id IS NULL
+               AND DATE_TRUNC('month', cf.fecha) = DATE_TRUNC('month', CURRENT_DATE)
+             GROUP BY DATE(cf.fecha)
+             ORDER BY DATE(cf.fecha) DESC`
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Monthly expenses report error:', error);
+        res.status(500).json({ error: 'Error al obtener gastos del mes' });
     }
 });
 

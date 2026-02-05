@@ -201,6 +201,67 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
     }
 });
 
+// Permanent delete account (only if no movements/references)
+router.delete('/:id/permanente', authenticateToken, authorizeRole('admin'), async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+
+        const checkResult = await client.query(
+            'SELECT id, nombre, saldo_actual, es_caja_operativa, es_caja_fondo FROM cuentas_pago WHERE id = $1',
+            [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Cuenta no encontrada' });
+        }
+
+        const cuenta = checkResult.rows[0];
+
+        if (cuenta.es_caja_operativa || cuenta.es_caja_fondo) {
+            return res.status(400).json({ error: 'No se puede eliminar una cuenta base del sistema.' });
+        }
+
+        if (parseFloat(cuenta.saldo_actual) !== 0) {
+            return res.status(400).json({ error: 'No se puede eliminar una cuenta con saldo. Balancee la cuenta primero.' });
+        }
+
+        const movimientosResult = await client.query(
+            'SELECT COUNT(*) as count FROM fondos_movimientos WHERE cuenta_id = $1',
+            [id]
+        );
+        const tieneMovimientos = parseInt(movimientosResult.rows[0].count) > 0;
+        if (tieneMovimientos) {
+            return res.status(400).json({ error: 'No se puede eliminar una cuenta con movimientos históricos.' });
+        }
+
+        const refsVentas = await client.query(
+            'SELECT COUNT(*) as count FROM ventas WHERE cuenta_pago_id = $1',
+            [id]
+        );
+        if (parseInt(refsVentas.rows[0].count) > 0) {
+            return res.status(400).json({ error: 'No se puede eliminar una cuenta usada en ventas.' });
+        }
+
+        const refsPagos = await client.query(
+            'SELECT COUNT(*) as count FROM pagos_compra WHERE cuenta_pago_id = $1',
+            [id]
+        );
+        if (parseInt(refsPagos.rows[0].count) > 0) {
+            return res.status(400).json({ error: 'No se puede eliminar una cuenta usada en pagos de compras.' });
+        }
+
+        await client.query('DELETE FROM cuentas_pago WHERE id = $1', [id]);
+
+        res.json({ message: 'Cuenta eliminada correctamente' });
+    } catch (error) {
+        console.error('Permanent delete account error:', error);
+        res.status(500).json({ error: 'Error al eliminar cuenta: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
+
 // Balance account - transfer balance to another account
 router.post('/:id/balancear', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
     const client = await pool.connect();

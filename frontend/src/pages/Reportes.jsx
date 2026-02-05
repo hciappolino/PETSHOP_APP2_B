@@ -8,6 +8,7 @@ export default function Reportes() {
     const [masVendidos, setMasVendidos] = useState([]);
     const [stockBajo, setStockBajo] = useState([]);
     const [ganancias, setGanancias] = useState([]);
+    const [gastosMes, setGastosMes] = useState([]);
     const [resumenFinanciero, setResumenFinanciero] = useState({ ventas: 0, mercaderia: 0, insumos: 0, ganancia: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -73,6 +74,9 @@ export default function Reportes() {
             } else if (activeTab === 'ganancias' && isAdmin) {
                 const res = await api.get('/reportes/ganancias-estimadas');
                 setGanancias(res.data);
+            } else if (activeTab === 'gastos' && isAdmin) {
+                const res = await api.get('/reportes/gastos-del-mes');
+                setGastosMes(res.data);
             }
         } catch (error) {
             setError('Error al cargar reportes: ' + (error.response?.data?.error || error.message));
@@ -144,6 +148,14 @@ export default function Reportes() {
                         onClick={() => setActiveTab('ganancias')}
                     >
                         💰 Ganancias
+                    </button>
+                )}
+                {isAdmin && (
+                    <button
+                        className={`btn btn-sm ${activeTab === 'gastos' ? 'btn-primary' : 'btn-outline'}`}
+                        onClick={() => setActiveTab('gastos')}
+                    >
+                        🧾 Gastos del Mes
                     </button>
                 )}
             </div>
@@ -341,6 +353,34 @@ export default function Reportes() {
                                                 <td>{((g.ganancia_estimada / g.venta_total) * 100).toFixed(1)}%</td>
                                             </tr>
                                         ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'gastos' && isAdmin && (
+                        <div className="card">
+                            <h3>Gastos del Mes (Servicios / Insumos)</h3>
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {gastosMes.length > 0 ? (
+                                            gastosMes.map((g, i) => (
+                                                <tr key={i}>
+                                                    <td>{new Date(g.fecha).toLocaleDateString()}</td>
+                                                    <td className="font-bold text-danger">${parseFloat(g.total_gastos).toFixed(2)}</td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr><td colSpan="2" className="text-center text-muted p-lg">Sin gastos registrados este mes</td></tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

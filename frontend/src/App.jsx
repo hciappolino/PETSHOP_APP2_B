@@ -13,6 +13,7 @@ import Proveedores from './pages/Proveedores';
 import Compras from './pages/Compras';
 import ComprasListado from './pages/ComprasListado';
 import ComprasPorProducto from './pages/ComprasPorProducto';
+import Gastos from './pages/Gastos';
 import POS from './pages/POS';
 import Caja from './pages/Caja';
 import Precios from './pages/Precios';
@@ -133,6 +134,15 @@ function AppRoutes() {
                 element={
                     <ProtectedRoute allowedRoles={['admin', 'gerente']}>
                         <ComprasPorProducto />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/compras/gastos"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <Gastos />
                     </ProtectedRoute>
                 }
             />

@@ -90,7 +90,12 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
             proveedor_id,
             numero_factura,
             fecha,
-            items // [{producto_id, descripcion, cantidad, precio_costo}]
+            items, // [{producto_id, descripcion, cantidad, precio_costo}]
+            pago_inmediato,
+            cuenta_pago_id,
+            monto_pagado,
+            referencia_pago,
+            notas_pago
         } = req.body;
 
         if (!items || items.length === 0) {
@@ -146,6 +151,86 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
                 );
                 console.log('Stock movement created for purchase:', movRes.rows[0]?.id || 'unknown');
             }
+        }
+
+        // Apply immediate payment if requested
+        if (pago_inmediato) {
+            const totalResult = await client.query(
+                'SELECT total FROM compras_facturas WHERE id = $1',
+                [facturaId]
+            );
+            const totalFactura = parseFloat(totalResult.rows[0]?.total || 0);
+
+            const montoPago = Math.min(
+                totalFactura,
+                Math.max(0, parseFloat(monto_pagado || totalFactura))
+            );
+
+            const cuentaId = parseInt(cuenta_pago_id);
+            if (!cuentaId || !montoPago || montoPago <= 0) {
+                throw new Error('Cuenta y monto vÃ¡lidos son obligatorios para pago inmediato');
+            }
+
+            if (montoPago > totalFactura) {
+                throw new Error(`Monto excede el total. Total: $${totalFactura}, Intenta pagar: $${montoPago}`);
+            }
+
+            const accountResult = await client.query(
+                `SELECT saldo_actual, es_contabilizada 
+                 FROM cuentas_pago 
+                 WHERE id = $1 AND activo = true`,
+                [cuentaId]
+            );
+
+            if (accountResult.rows.length === 0) {
+                throw new Error('Cuenta de pago no encontrada o inactiva');
+            }
+
+            const { saldo_actual: saldoAnterior, es_contabilizada } = accountResult.rows[0];
+            if (es_contabilizada && parseFloat(saldoAnterior) < montoPago) {
+                throw new Error(`Saldo insuficiente. Disponible: $${saldoAnterior}, Intenta descontar: $${montoPago}`);
+            }
+
+            const paymentResult = await client.query(
+                `INSERT INTO pagos_compra (factura_id, cuenta_pago_id, monto, referencia, notas, usuario_id) 
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 RETURNING *`,
+                [facturaId, cuentaId, montoPago, referencia_pago || null, notas_pago || null, req.user.id]
+            );
+
+            const nuevoMontoPagado = montoPago;
+            const isPaid = nuevoMontoPagado >= totalFactura;
+            await client.query(
+                `UPDATE compras_facturas 
+                 SET monto_pagado = $1, pagado = $2 
+                 WHERE id = $3`,
+                [nuevoMontoPagado, isPaid, facturaId]
+            );
+
+            const nuevoSaldo = parseFloat(saldoAnterior) - montoPago;
+            await client.query(
+                `UPDATE cuentas_pago 
+                 SET saldo_actual = $1 
+                 WHERE id = $2`,
+                [nuevoSaldo, cuentaId]
+            );
+
+            await client.query(
+                `INSERT INTO fondos_movimientos 
+                 (cuenta_id, tipo, monto, motivo, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [
+                    cuentaId,
+                    'EGRESO',
+                    montoPago,
+                    'COMPRA',
+                    facturaId,
+                    saldoAnterior,
+                    nuevoSaldo,
+                    req.user.id,
+                    `Pago inmediato de factura #${facturaId}${referencia_pago ? ` - Ref: ${referencia_pago}` : ''}`
+                ]
+            );
         }
 
         await client.query('COMMIT');
@@ -390,4 +475,3 @@ router.post('/:id/pagar', authenticateToken, authorizeRole('admin', 'gerente'), 
 });
 
 export default router;
-

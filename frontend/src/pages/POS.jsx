@@ -54,8 +54,8 @@ export default function POS() {
             const defaultLista = listasRes.data.find(l => l.es_default) || listasRes.data[0];
             if (defaultLista) setSelectedLista(defaultLista.id);
 
-            const efectivo = cuentasRes.data.find(c => c.nombre === 'Efectivo');
-            if (efectivo) setSelectedCuenta(efectivo.id);
+            const cajaOperativa = cuentasRes.data.find(c => c.es_caja_operativa) || cuentasRes.data[0];
+            if (cajaOperativa) setSelectedCuenta(cajaOperativa.id);
         } catch (error) {
             alert('Error al cargar datos iniciales: ' + (error.response?.data?.error || error.message));
         } finally {
@@ -182,9 +182,51 @@ export default function POS() {
     };
 
     const shouldApplyPromoToItem = (promo, item) => {
-        if (promo.ambito_aplicacion === 'producto' && promo.entidad_id === item.producto_id) return true;
-        if (promo.ambito_aplicacion === 'marca' && promo.entidad_nombre === item.marca) return true;
-        if (promo.ambito_aplicacion === 'fabricante' && promo.entidad_nombre === item.fabricante) return true;
+        // Debug logging
+        console.log('[Promo] shouldApplyPromoToItem:', {
+            promoId: promo.id,
+            promoNombre: promo.nombre,
+            promoAmbito: promo.ambito_aplicacion,
+            promoEntidadId: promo.entidad_id,
+            promoMarca: promo.marca_nombre,
+            promoFabricante: promo.fabricante_nombre,
+            itemId: item.producto_id,
+            itemMarca: item.marca,
+            itemFabricante: item.fabricante
+        });
+        
+        // Carrito-wide promotions always apply
+        if (promo.ambito_aplicacion === 'carrito') return true;
+        
+        // Producto específico
+        if (promo.ambito_aplicacion === 'producto') {
+            const match = promo.entidad_id === item.producto_id;
+            console.log('[Promo] Producto match:', match, promo.entidad_id, '===', item.producto_id);
+            return match;
+        }
+        
+        // Marca
+        if (promo.ambito_aplicacion === 'marca') {
+            const promoMarca = promo.marca_nombre || promo.entidad_nombre;
+            if (promoMarca && item.marca) {
+                const match = promoMarca.toLowerCase() === item.marca.toLowerCase();
+                console.log('[Promo] Marca match:', match, promoMarca, '===', item.marca);
+                return match;
+            }
+            console.log('[Promo] Marca no coincide: promoMarca=', promoMarca, 'item.marca=', item.marca);
+        }
+        
+        // Fabricante
+        if (promo.ambito_aplicacion === 'fabricante') {
+            const promoFabricante = promo.fabricante_nombre || promo.entidad_nombre;
+            if (promoFabricante && item.fabricante) {
+                const match = promoFabricante.toLowerCase() === item.fabricante.toLowerCase();
+                console.log('[Promo] Fabricante match:', match, promoFabricante, '===', item.fabricante);
+                return match;
+            }
+        }
+        
+        console.log('[Promo] No aplicó:', promo.ambito_aplicacion);
         return false;
     };
 
@@ -208,6 +250,18 @@ export default function POS() {
         return discount;
     };
 
+    const getAmbitoLabel = (promo) => {
+        const labels = {
+            'producto': promo.producto_nombre || 'Producto específico',
+            'categoria': promo.categoria_nombre || 'Categoría',
+            'marca': promo.marca_nombre || promo.entidad_nombre || 'Marca',
+            'fabricante': promo.fabricante_nombre || promo.entidad_nombre || 'Fabricante',
+            'carrito': 'Carrito completo',
+            'cliente': 'Cliente específico'
+        };
+        return labels[promo.ambito_aplicacion] || promo.ambito_aplicacion;
+    };
+
     const handleSale = async () => {
         if (cart.length === 0) {
             alert('El carrito está vacío');
@@ -226,6 +280,7 @@ export default function POS() {
             const saleData = {
                 cliente_id: selectedCliente || null,
                 lista_precio_id: parseInt(selectedLista),
+                descuento_total: calculateTotalDiscount(),
                 items: cart.map(item => ({
                     producto_id: item.producto_id,
                     cantidad: item.cantidad,
@@ -249,8 +304,8 @@ export default function POS() {
             setAppliedPromociones([]);
             setSelectedCliente('');
             // Reset payment to default cash account
-            const efectivo = cuentasPago.find(c => c.nombre === 'Efectivo');
-            if (efectivo) setSelectedCuenta(efectivo.id);
+            const cajaOperativa = cuentasPago.find(c => c.es_caja_operativa) || cuentasPago[0];
+            if (cajaOperativa) setSelectedCuenta(cajaOperativa.id);
             loadProductos();
         } catch (error) {
             alert('Error al procesar venta: ' + (error.response?.data?.error || error.message));
@@ -475,6 +530,57 @@ export default function POS() {
                     </div>
 
                     <div className="form-group">
+                        <label className="form-label">Promociones</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                            Selecciona las promociones a aplicar
+                        </div>
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                            {promociones.length === 0 ? (
+                                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                                    No hay promociones activas
+                                </div>
+                            ) : (
+                                promociones.map(promo => {
+                                    const isApplied = appliedPromociones.some(p => p.id === promo.id);
+                                    return (
+                                        <label key={promo.id} style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center',
+                                            padding: '4px',
+                                            cursor: 'pointer',
+                                            background: isApplied ? 'var(--color-success-light)' : 'transparent',
+                                            borderRadius: '4px',
+                                            marginBottom: '2px'
+                                        }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isApplied}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setAppliedPromociones([...appliedPromociones, promo]);
+                                                    } else {
+                                                        setAppliedPromociones(appliedPromociones.filter(p => p.id !== promo.id));
+                                                    }
+                                                }}
+                                                style={{ marginRight: '8px' }}
+                                            />
+                                            <div>
+                                                <div style={{ fontSize: '12px', fontWeight: '500' }}>
+                                                    {promo.nombre}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                                    {promo.tipo === 'porcentaje' ? `${promo.valor_descuento}%` : `${promo.valor_descuento}`} 
+                                                    - {getAmbitoLabel(promo)}
+                                                </div>
+                                            </div>
+                                        </label>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="form-group">
                         <label className="form-label">Forma de Pago</label>
                         <select
                             className="form-select"
@@ -498,6 +604,58 @@ export default function POS() {
                         <span>TOTAL:</span>
                         <strong>${getTotal().toFixed(2)}</strong>
                     </div>
+
+                    {/* Promociones aplicadas */}
+                    {appliedPromociones.length > 0 && (
+                        <div className="applied-promotions" style={{ 
+                            background: 'var(--color-success-light)', 
+                            borderRadius: 'var(--border-radius)',
+                            padding: 'var(--spacing-md)',
+                            marginTop: 'var(--spacing-md)'
+                        }}>
+                            <h4 style={{ margin: '0 0 var(--spacing-sm)', color: 'var(--color-success)', fontSize: '13px' }}>
+                                🎉 Promociones Aplicadas
+                            </h4>
+                            {appliedPromociones.map(promo => (
+                                <div key={promo.id} style={{ 
+                                    fontSize: '12px', 
+                                    color: 'var(--color-success)',
+                                    marginBottom: '4px'
+                                }}>
+                                    ✓ {promo.nombre} 
+                                    ({promo.tipo === 'porcentaje' ? `${promo.valor_descuento}%` : `${promo.valor_descuento}`})
+                                </div>
+                            ))}
+                            <div style={{ 
+                                fontSize: '12px', 
+                                fontWeight: 'bold',
+                                color: 'var(--color-success)',
+                                marginTop: 'var(--spacing-sm)',
+                                borderTop: '1px solid var(--color-success)',
+                                paddingTop: '4px'
+                            }}>
+                                Descuento: -${calculateTotalDiscount().toFixed(2)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Descuentos por ítem */}
+                    {cart.some(item => getItemDiscount(item) > 0) && (
+                        <div style={{ marginTop: 'var(--spacing-md)' }}>
+                            <h5 style={{ fontSize: '12px', marginBottom: '4px' }}>Descuentos por producto:</h5>
+                            {cart.filter(item => getItemDiscount(item) > 0).map((item, idx) => (
+                                <div key={idx} style={{ 
+                                    fontSize: '11px', 
+                                    color: 'var(--color-success)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <span>{item.nombre.substring(0, 20)}...</span>
+                                    <span>-${getItemDiscount(item).toFixed(2)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <button
                         className="btn btn-primary btn-lg w-full"

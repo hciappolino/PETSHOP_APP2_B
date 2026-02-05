@@ -56,10 +56,9 @@ echo [OK] Conexion a PostgreSQL exitosa
 REM ==========================================
 REM PASO 3: Verificar/crear base de datos
 REM ==========================================
-echo [3/5] Configurando base de datos petshop_app...
-echo [3/5] Configurando BD... >> %LOG_FILE%
+echo [3/5] Verificando base de datos petshop_app...
+echo [3/5] Verificando BD... >> %LOG_FILE%
 
-REM Verificar si existe
 psql -U postgres -h localhost -lqt 2>>%LOG_FILE% | findstr /C:"petshop_app" >nul
 if !ERRORLEVEL! EQU 0 (
     echo [OK] BD petshop_app existe
@@ -76,69 +75,7 @@ if !ERRORLEVEL! EQU 0 (
     )
     echo [OK] BD creada
     echo [OK] BD creada >> %LOG_FILE%
-    
-    REM Crear schema
-    echo [INFO] Creando tablas...
-    echo [INFO] Creando tablas... >> %LOG_FILE%
-    psql -U postgres -h localhost -d petshop_app -f "database\single_schema.sql" 2>>%LOG_FILE%
-    if !ERRORLEVEL! NEQ 0 (
-        echo [ERROR] Error creando tablas
-        echo [ERROR] Schema fallo >> %LOG_FILE%
-        pause
-        exit /b 1
-    )
-    echo [OK] Tablas creadas
-    echo [OK] Tablas creadas >> %LOG_FILE%
-    
-    REM Insertar datos iniciales
-    echo [INFO] Insertando datos iniciales...
-    echo [INFO] Insertando datos... >> %LOG_FILE%
-    psql -U postgres -h localhost -d petshop_app -f "database\single_seed.sql" 2>>%LOG_FILE%
-    if !ERRORLEVEL! NEQ 0 (
-        echo [ERROR] Error insertando datos
-        echo [ERROR] Seed fallo >> %LOG_FILE%
-        pause
-        exit /b 1
-    )
-    echo [OK] Datos iniciales insertados
-    echo [OK] Datos insertados >> %LOG_FILE%
 )
-
-REM ==========================================
-REM PASO 3.5: Aplicar migraciones (solo las no aplicadas)
-REM Se crea una tabla `schema_migrations` y se registra cada archivo aplicado.
-REM ==========================================
-echo [3.5/5] Aplicando migraciones pendientes...
-echo [3.5/5] Aplicando migraciones... >> %LOG_FILE%
-
-REM Crear tabla de control si no existe
-psql -U postgres -h localhost -d petshop_app -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT now());" >> %LOG_FILE% 2>&1
-
-for %%f in ("database\migrations\*.sql") do (
-    set "FNAME=%%~nxf"
-    set "APPLIED="
-    for /f "usebackq tokens=* delims=" %%a in (`psql -U postgres -h localhost -d petshop_app -t -c "SELECT 1 FROM schema_migrations WHERE filename='%%~nxf';"`) do (
-        set "APPLIED=%%a"
-    )
-
-    if defined APPLIED (
-        echo [MIG] %%~nxf ya aplicada, omitiendo >> %LOG_FILE%
-    ) else (
-        echo [MIG] Ejecutando %%f >> %LOG_FILE%
-        psql -U postgres -h localhost -d petshop_app -v ON_ERROR_STOP=1 -f "%%f" >> %LOG_FILE% 2>&1
-        if !ERRORLEVEL! NEQ 0 (
-            echo [ERROR] Fallo aplicando migracion %%f >> %LOG_FILE%
-            echo [ERROR] Abortando inicio por migración fallida >> %LOG_FILE%
-            pause
-            exit /b 1
-        ) else (
-            psql -U postgres -h localhost -d petshop_app -c "INSERT INTO schema_migrations(filename) VALUES('%%~nxf');" >> %LOG_FILE% 2>&1
-            echo [MIG] %%~nxf aplicada correctamente >> %LOG_FILE%
-        )
-    )
-)
-echo [OK] Migraciones aplicadas >> %LOG_FILE%
-
 
 REM ==========================================
 REM PASO 4: Configurar .env
@@ -181,10 +118,10 @@ if not exist "backend\node_modules" (
     echo [INFO] Instalando backend...
     echo [INFO] npm install backend... >> %LOG_FILE%
     cd backend
-    call npm install >>../INICIAR_SISTEMA_LOG.txt 2>&1
+    call npm install >>..\INICIAR_SISTEMA_LOG.txt 2>&1
     if !ERRORLEVEL! NEQ 0 (
         echo [ERROR] npm install backend fallo
-        echo [ERROR] npm backend fallo >> ../INICIAR_SISTEMA_LOG.txt
+        echo [ERROR] npm backend fallo >> ..\INICIAR_SISTEMA_LOG.txt
         cd ..
         pause
         exit /b 1
@@ -198,10 +135,10 @@ if not exist "frontend\node_modules" (
     echo [INFO] Instalando frontend...
     echo [INFO] npm install frontend... >> %LOG_FILE%
     cd frontend
-    call npm install >>../INICIAR_SISTEMA_LOG.txt 2>&1
+    call npm install >>..\INICIAR_SISTEMA_LOG.txt 2>&1
     if !ERRORLEVEL! NEQ 0 (
         echo [ERROR] npm install frontend fallo
-        echo [ERROR] npm frontend fallo >> ../INICIAR_SISTEMA_LOG.txt
+        echo [ERROR] npm frontend fallo >> ..\INICIAR_SISTEMA_LOG.txt
         cd ..
         pause
         exit /b 1
@@ -236,13 +173,14 @@ echo ========================================
 echo   SISTEMA INICIADO
 echo ========================================
 echo.
-echo Usuario: admin      / Pass: admin123
-echo Usuario: vendedor1  / Pass: admin123
-echo Usuario: gerente    / Pass: admin123
+echo Usuario: admin / Pass: admin123
+
 echo.
 echo DB: petshop_app
 echo Log: %LOG_FILE%
 echo.
+echo Nota: La inicializacion de tablas y datos se realiza desde el backend al primer inicio.
+echo Nota: Para datos de ejemplo, use la pagina /init-db.
 
 echo [OK] Sistema iniciado >> %LOG_FILE%
 echo ================================================ >> %LOG_FILE%

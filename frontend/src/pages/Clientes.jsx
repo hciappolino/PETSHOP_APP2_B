@@ -114,8 +114,8 @@ export default function Clientes() {
         try {
             const res = await api.get('/cuentas-pago');
             setCuentasPago(res.data);
-            const efectivo = res.data.find(c => c.nombre === 'Efectivo');
-            setPaymentForm({ monto: '', cuenta_pago_id: efectivo ? efectivo.id : (res.data[0]?.id || ''), referencia: '' });
+            const cajaOperativa = res.data.find(c => c.es_caja_operativa) || res.data[0];
+            setPaymentForm({ monto: '', cuenta_pago_id: cajaOperativa ? cajaOperativa.id : '', referencia: '' });
         } catch (err) {
             setError('Error al cargar cuentas de pago: ' + (err.response?.data?.error || err.message));
         } finally {

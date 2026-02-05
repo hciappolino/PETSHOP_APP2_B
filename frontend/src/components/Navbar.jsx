@@ -76,6 +76,7 @@ export const Navbar = () => {
                                 <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
                                     <Link to="/proveedores">🏭 Proveedores</Link>
                                     <Link to="/compras">📥 Ingreso de Facturas</Link>
+                                    <Link to="/compras/gastos">🧾 Gastos/Servicios</Link>
                                     <Link to="/compras/listado">🧾 Listado de Compras</Link>
                                     <Link to="/compras/por-producto">🔎 Compras por Producto</Link>
                                 </div>

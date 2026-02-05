@@ -106,13 +106,14 @@ export default function Promociones() {
 
     const openEditModal = (promocion) => {
         setEditingPromocion(promocion);
+        const isMarcaFabricante = promocion.ambito_aplicacion === 'marca' || promocion.ambito_aplicacion === 'fabricante';
         setFormData({
             nombre: promocion.nombre,
             descripcion: promocion.descripcion || '',
             tipo: promocion.tipo,
             valor_descuento: promocion.valor_descuento,
             ambito_aplicacion: promocion.ambito_aplicacion,
-            entidad_id: promocion.entidad_id || '',
+            entidad_id: isMarcaFabricante ? (promocion.entidad_nombre || '') : (promocion.entidad_id || ''),
             cantidad_minima: promocion.cantidad_minima || 1,
             fecha_inicio: promocion.fecha_inicio ? new Date(promocion.fecha_inicio).toISOString().slice(0, 16) : '',
             fecha_fin: promocion.fecha_fin ? new Date(promocion.fecha_fin).toISOString().slice(0, 16) : '',
@@ -127,9 +128,11 @@ export default function Promociones() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const isMarcaFabricante = formData.ambito_aplicacion === 'marca' || formData.ambito_aplicacion === 'fabricante';
             const payload = {
                 ...formData,
-                entidad_id: formData.entidad_id ? parseInt(formData.entidad_id) : null,
+                entidad_id: isMarcaFabricante ? null : (formData.entidad_id ? parseInt(formData.entidad_id) : null),
+                entidad_nombre: isMarcaFabricante ? (formData.entidad_id || null) : null,
                 cantidad_minima: parseInt(formData.cantidad_minima) || 1,
                 uso_maximo: formData.uso_maximo ? parseInt(formData.uso_maximo) : null,
                 prioridad: parseInt(formData.prioridad) || 0,
@@ -215,7 +218,7 @@ export default function Promociones() {
     };
 
     const getEntidadNombre = (promocion) => {
-        if (!promocion.entidad_id) return '-';
+        if (!promocion.entidad_id && !promocion.entidad_nombre) return '-';
         switch (promocion.ambito_aplicacion) {
             case 'producto':
                 const prod = productos.find(p => p.id === promocion.entidad_id);
@@ -223,6 +226,9 @@ export default function Promociones() {
             case 'categoria':
                 const cat = categorias.find(c => c.id === promocion.entidad_id);
                 return cat?.nombre || `ID: ${promocion.entidad_id}`;
+            case 'marca':
+            case 'fabricante':
+                return promocion.entidad_nombre || '-';
             default:
                 return promocion.ambito_aplicacion;
         }
@@ -429,20 +435,20 @@ export default function Promociones() {
                                     {formData.ambito_aplicacion !== 'carrito' && (
                                         <div className="form-group">
                                             <label>Seleccionar {getAmbitoLabel(formData.ambito_aplicacion)}</label>
-                                            <select
-                                                value={formData.entidad_id}
-                                                onChange={e => setFormData({...formData, entidad_id: e.target.value})}
-                                                required={formData.ambito_aplicacion !== 'carrito'}
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {entidades.map(e => (
-                                                    <option key={e.id} value={e.id}>
-                                                        {e.nombre} {e.codigo ? `(${e.codigo})` : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
+                                        <select
+                                            value={formData.entidad_id}
+                                            onChange={e => setFormData({...formData, entidad_id: e.target.value})}
+                                            required={formData.ambito_aplicacion !== 'carrito'}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {entidades.map(e => (
+                                                <option key={e.id || e.nombre} value={(formData.ambito_aplicacion === 'marca' || formData.ambito_aplicacion === 'fabricante') ? e.nombre : e.id}>
+                                                    {e.nombre} {e.codigo ? `(${e.codigo})` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                                 </div>
 
                                 {(formData.tipo === 'b2g' || formData.tipo === 'cantidad') && (

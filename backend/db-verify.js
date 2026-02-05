@@ -5,7 +5,7 @@ const REQUIRED_TABLES = {
     proveedores: ['id', 'nombre', 'cuit', 'contacto', 'telefono', 'email', 'direccion', 'activo', 'created_at'],
     clientes: ['id', 'nombre', 'dni_cuit', 'telefono', 'email', 'direccion', 'saldo_cc', 'activo', 'created_at'],
     productos: ['id', 'nombre', 'codigo', 'tipo_presentacion', 'factor_conversion', 'costo_ultima_compra', 'stock_actual', 'stock_minimo', 'activo', 'created_at'],
-    cuentas_pago: ['id', 'nombre', 'tipo', 'saldo_actual', 'es_contabilizada', 'activo', 'created_at'],
+    cuentas_pago: ['id', 'nombre', 'tipo', 'saldo_actual', 'es_caja_operativa', 'es_caja_fondo', 'visible_pos', 'es_contabilizada', 'activo', 'created_at'],
     sesiones_caja: ['id', 'estado', 'apertura_fecha', 'cierre_fecha', 'saldo_apertura', 'saldo_cierre_esperado', 'saldo_cierre_real', 'diferencia', 'usuario_apertura_id', 'usuario_cierre_id'],
     compras_facturas: ['id', 'proveedor_id', 'fecha', 'numero_factura', 'total', 'monto_pagado', 'pagado', 'notas', 'created_at'],
     compras_renglones: ['id', 'factura_id', 'producto_id', 'descripcion', 'cantidad', 'precio_costo', 'subtotal'],
@@ -132,7 +132,8 @@ export async function ensureRequiredAccounts() {
         console.log('\n💰 VERIFICANDO CUENTAS ESPECIALES:\n');
 
         const requiredAccounts = [
-            { nombre: 'PAGOS_EXTRAORDINARIOS', tipo: 'EXTERNA', es_contabilizada: false }
+            { nombre: 'Caja Operativa', tipo: 'EFECTIVO', es_contabilizada: true, es_caja_operativa: true, es_caja_fondo: false, visible_pos: true },
+            { nombre: 'Caja Fondo', tipo: 'EFECTIVO', es_contabilizada: true, es_caja_operativa: false, es_caja_fondo: true, visible_pos: false }
         ];
 
         for (const account of requiredAccounts) {
@@ -143,8 +144,19 @@ export async function ensureRequiredAccounts() {
 
             if (exists.rows.length === 0) {
                 await client.query(
-                    'INSERT INTO cuentas_pago (nombre, tipo, saldo_actual, es_contabilizada, activo) VALUES ($1, $2, $3, $4, $5)',
-                    [account.nombre, account.tipo, 0.00, account.es_contabilizada, true]
+                    `INSERT INTO cuentas_pago 
+                     (nombre, tipo, saldo_actual, es_caja_operativa, es_caja_fondo, visible_pos, es_contabilizada, activo) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [
+                        account.nombre,
+                        account.tipo,
+                        0.00,
+                        account.es_caja_operativa,
+                        account.es_caja_fondo,
+                        account.visible_pos,
+                        account.es_contabilizada,
+                        true
+                    ]
                 );
                 console.log(`  ✓ Creada: ${account.nombre}`);
             } else {

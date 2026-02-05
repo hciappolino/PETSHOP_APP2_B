@@ -93,7 +93,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        const { cliente_id, items, cuenta_pago_id, tipo_venta, lista_precio_id, notas } = req.body;
+        const { cliente_id, items, cuenta_pago_id, tipo_venta, lista_precio_id, notas, descuento_total } = req.body;
 
             if (!items || items.length === 0) {
             return res.status(400).json({ error: 'Debe incluir al menos un item' });
@@ -166,8 +166,10 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         // Insert items and update stock
+        let subtotalVenta = 0;
         for (const item of items) {
             const { producto_id, cantidad, precio_venta, es_granel } = item;
+            subtotalVenta += parseFloat(cantidad) * parseFloat(precio_venta);
 
             await client.query(
                 `INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_venta, es_granel)
@@ -204,12 +206,20 @@ router.post('/', authenticateToken, async (req, res) => {
             }
         }
 
-        // Get total from sale (implicitly updated by triggers)
-        const totalResult = await client.query(
-            'SELECT total FROM ventas WHERE id = $1',
-            [ventaId]
+        // Apply discount at sale level to keep totals consistent
+        const descuento = Math.max(
+            0,
+            Math.min(
+                subtotalVenta,
+                parseFloat(descuento_total || 0)
+            )
         );
-        const total = parseFloat(totalResult.rows[0].total);
+        const total = Math.max(0, subtotalVenta - descuento);
+
+        await client.query(
+            'UPDATE ventas SET total = $1, descuento_total = $2 WHERE id = $3',
+            [total, descuento, ventaId]
+        );
 
         // If this was a cash/point-of-sale sale, update payment account and create fund movement
         if ((tipo_venta || 'CONTADO') !== 'CUENTA_CORRIENTE') {

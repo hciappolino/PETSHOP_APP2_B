@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -159,6 +159,17 @@ export default function Fondos() {
         }
     };
 
+    const handleDeleteAccount = async (cuenta) => {
+        const mensaje = `¿Desea eliminar permanentemente la cuenta "${cuenta.nombre}"?\n\nSolo es posible si no tiene movimientos ni saldo.`;
+        if (!confirm(mensaje)) return;
+        try {
+            await api.delete(`/cuentas-pago/${cuenta.id}/permanente`);
+            loadData();
+        } catch (err) {
+            setError('Error al eliminar cuenta: ' + (err.response?.data?.error || err.message));
+        }
+    };
+
     const openBalanceModal = (cuenta) => {
         setBalancingAccount(cuenta);
         setBalanceDestinoId('');
@@ -255,7 +266,7 @@ export default function Fondos() {
                             <small className="text-muted">Saldo Disponible</small>
                             <h2 className="m-0">${formatMoney(cuenta.saldo_actual)}</h2>
                         </div>
-                        {canEdit && cuenta.activo && (
+                        {canEdit && (
                             <div className="flex gap-sm mt-md pt-md border-top">
                                 <button
                                     className="btn btn-sm btn-outline"
@@ -285,6 +296,15 @@ export default function Fondos() {
                                         onClick={(e) => { e.stopPropagation(); handleToggleAccountStatus(cuenta); }}
                                     >
                                         ✅ Activar
+                                    </button>
+                                )}
+                                {!cuenta.es_caja_operativa && !cuenta.es_caja_fondo && parseFloat(cuenta.saldo_actual) === 0 && (
+                                    <button
+                                        className="btn btn-sm btn-danger"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteAccount(cuenta); }}
+                                        title="Eliminar cuenta (solo sin movimientos ni saldo)"
+                                    >
+                                        🗑️ Eliminar
                                     </button>
                                 )}
                             </div>

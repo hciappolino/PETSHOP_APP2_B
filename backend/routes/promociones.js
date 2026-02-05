@@ -4,6 +4,24 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+async function ensurePromocionesView() {
+    await pool.query(`
+        CREATE OR REPLACE VIEW v_promociones_actuales AS
+        SELECT 
+            p.*,
+            pr.nombre as producto_nombre,
+            lp.nombre as categoria_nombre,
+            pr.marca as marca_nombre,
+            pr.fabricante as fabricante_nombre
+        FROM promociones p
+        LEFT JOIN productos pr ON p.ambito_aplicacion = 'producto' AND p.entidad_id = pr.id
+        LEFT JOIN listas_precios lp ON p.ambito_aplicacion = 'categoria' AND p.entidad_id = lp.id
+        WHERE p.activo = true
+          AND (p.fecha_fin IS NULL OR p.fecha_fin > CURRENT_TIMESTAMP)
+          AND (p.uso_maximo IS NULL OR p.uso_actual < p.uso_maximo)
+    `);
+}
+
 // Get all promotions
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -59,6 +77,7 @@ router.get('/producto/:productoId', authenticateToken, async (req, res) => {
 // Get all active promotions (for POS)
 router.get('/activas', authenticateToken, async (req, res) => {
     try {
+        await ensurePromocionesView();
         const result = await pool.query(`
             SELECT * FROM v_promociones_actuales
             ORDER BY prioridad DESC
@@ -91,7 +110,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create promotion
-router.post('/', authenticateToken, authorizeRole(['admin', 'gerente']), async (req, res) => {
+router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
     try {
         const {
             nombre,
@@ -100,6 +119,7 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'gerente']), async (
             valor_descuento,
             ambito_aplicacion,
             entidad_id,
+            entidad_nombre,
             cantidad_minima,
             fecha_inicio,
             fecha_fin,
@@ -113,13 +133,13 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'gerente']), async (
         const result = await pool.query(`
             INSERT INTO promociones (
                 nombre, descripcion, tipo, valor_descuento, ambito_aplicacion,
-                entidad_id, cantidad_minima, fecha_inicio, fecha_fin,
+                entidad_id, entidad_nombre, cantidad_minima, fecha_inicio, fecha_fin,
                 uso_maximo, prioridad, stackeable, usuario_crea_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
         `, [
             nombre, descripcion, tipo, valor_descuento, ambito_aplicacion,
-            entidad_id, cantidad_minima, fecha_inicio, fecha_fin,
+            entidad_id, entidad_nombre, cantidad_minima, fecha_inicio, fecha_fin,
             uso_maximo, prioridad || 0, stackeable || false, usuario_crea_id
         ]);
 
@@ -131,7 +151,7 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'gerente']), async (
 });
 
 // Update promotion
-router.put('/:id', authenticateToken, authorizeRole(['admin', 'gerente']), async (req, res) => {
+router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -141,6 +161,7 @@ router.put('/:id', authenticateToken, authorizeRole(['admin', 'gerente']), async
             valor_descuento,
             ambito_aplicacion,
             entidad_id,
+            entidad_nombre,
             cantidad_minima,
             fecha_inicio,
             fecha_fin,
@@ -158,18 +179,19 @@ router.put('/:id', authenticateToken, authorizeRole(['admin', 'gerente']), async
                 valor_descuento = COALESCE($4, valor_descuento),
                 ambito_aplicacion = COALESCE($5, ambito_aplicacion),
                 entidad_id = COALESCE($6, entidad_id),
-                cantidad_minima = COALESCE($7, cantidad_minima),
-                fecha_inicio = COALESCE($8, fecha_inicio),
-                fecha_fin = COALESCE($9, fecha_fin),
-                activo = COALESCE($10, activo),
-                uso_maximo = COALESCE($11, uso_maximo),
-                prioridad = COALESCE($12, prioridad),
-                stackeable = COALESCE($13, stackeable)
-            WHERE id = $14
+                entidad_nombre = COALESCE($7, entidad_nombre),
+                cantidad_minima = COALESCE($8, cantidad_minima),
+                fecha_inicio = COALESCE($9, fecha_inicio),
+                fecha_fin = COALESCE($10, fecha_fin),
+                activo = COALESCE($11, activo),
+                uso_maximo = COALESCE($12, uso_maximo),
+                prioridad = COALESCE($13, prioridad),
+                stackeable = COALESCE($14, stackeable)
+            WHERE id = $15
             RETURNING *
         `, [
             nombre, descripcion, tipo, valor_descuento, ambito_aplicacion,
-            entidad_id, cantidad_minima, fecha_inicio, fecha_fin,
+            entidad_id, entidad_nombre, cantidad_minima, fecha_inicio, fecha_fin,
             activo, uso_maximo, prioridad, stackeable, id
         ]);
 
@@ -185,7 +207,7 @@ router.put('/:id', authenticateToken, authorizeRole(['admin', 'gerente']), async
 });
 
 // Cancel/Deactivate promotion
-router.put('/:id/cancelar', authenticateToken, authorizeRole(['admin', 'gerente']), async (req, res) => {
+router.put('/:id/cancelar', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
     try {
         const { id } = req.params;
 

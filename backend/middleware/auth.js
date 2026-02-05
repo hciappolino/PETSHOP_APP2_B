@@ -13,8 +13,10 @@ export const authenticateToken = (req, res, next) => {
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) {
+            console.error('[Auth] Token verification failed:', err.message);
             return res.status(403).json({ error: 'Token inválido o expirado' });
         }
+        console.log('[Auth] User from token:', JSON.stringify(user));
         req.user = user;
         next();
     });
@@ -27,11 +29,24 @@ export const authorizeRole = (...allowedRoles) => {
             return res.status(401).json({ error: 'No autenticado' });
         }
 
-        if (!allowedRoles.includes(req.user.rol)) {
+        // Safety check for undefined rol
+        const userRol = req.user.rol || '';
+        
+        console.log('[Auth] Role check:', {
+            url: req.originalUrl,
+            method: req.method,
+            userRol: userRol,
+            userRolType: typeof userRol,
+            allowedRoles: allowedRoles,
+            includesResult: allowedRoles.includes(userRol),
+            charCodes: userRol.split('').map(c => c.charCodeAt(0))
+        });
+
+        if (!allowedRoles.includes(userRol)) {
             return res.status(403).json({
                 error: 'No tiene permisos para realizar esta acción',
                 requiredRoles: allowedRoles,
-                userRole: req.user.rol
+                userRole: userRol
             });
         }
 

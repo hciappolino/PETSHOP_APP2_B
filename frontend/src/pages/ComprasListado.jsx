@@ -101,10 +101,10 @@ export default function ComprasListado() {
         try {
             const res = await api.get('/cuentas-pago');
             setCuentasPago(res.data);
-            const efectivo = res.data.find(c => c.nombre === 'Efectivo');
+            const cajaOperativa = res.data.find(c => c.es_caja_operativa) || res.data[0];
             setPaymentForm({ 
                 monto: saldoPendiente.toFixed(2), 
-                cuenta_pago_id: efectivo ? efectivo.id : (res.data[0]?.id || ''), 
+                cuenta_pago_id: cajaOperativa ? cajaOperativa.id : '', 
                 referencia: '',
                 notas: ''
             });
