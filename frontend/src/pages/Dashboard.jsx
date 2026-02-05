@@ -37,12 +37,14 @@ export default function Dashboard() {
             const sesionRes = await api.get('/sesiones-caja/current');
             const sesionData = sesionRes.data;
 
-            // Calcular valor del stock a precio de venta
-            const valorStockVenta = productosRes.data.reduce((acc, p) => {
-                const qty = parseFloat(p.stock_actual || 0) || 0;
-                const precioVenta = parseFloat(p.precio_venta_unidad || p.precio_venta || p.precio || 0) || 0;
-                return acc + qty * precioVenta;
-            }, 0);
+            // Calcular valor del stock a precio de venta (solo productos con stock > 0)
+            const valorStockVenta = productosRes.data
+                .filter(p => parseFloat(p.stock_actual || 0) > 0)
+                .reduce((acc, p) => {
+                    const qty = parseFloat(p.stock_actual || 0) || 0;
+                    const precioVenta = parseFloat(p.precio_venta_unidad || p.precio_venta || p.precio || 0) || 0;
+                    return acc + qty * precioVenta;
+                }, 0);
 
             setStats({
                 productosTotal: productosRes.data.length,

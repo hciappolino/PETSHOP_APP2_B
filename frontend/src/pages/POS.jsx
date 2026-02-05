@@ -427,7 +427,7 @@ export default function POS() {
                             </div>
                             <div className="product-info" style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
                                 <span className="badge badge-info" style={{ marginRight: '8px' }}>{producto.tipo_presentacion}</span>
-                                <span>Stock: {parseFloat(producto.stock_actual).toFixed(2)}</span>
+                                <span>Stock: {Math.max(0, parseFloat(producto.stock_actual)).toFixed(2)}</span>
                             </div>
                             <div className="product-prices" style={{ marginBottom: '12px' }}>
                                 <div>

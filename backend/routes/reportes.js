@@ -235,7 +235,8 @@ router.get('/resumen-financiero', authenticateToken, authorizeRole('admin', 'ger
                 const valorRes = await pool.query(
                     `SELECT COALESCE(SUM(p.stock_actual * COALESCE(la.precio_venta_unidad, 0)), 0) as valor
                      FROM productos p
-                     LEFT JOIN lista_articulo la ON p.id = la.producto_id AND la.lista_precio_id = $1`,
+                     LEFT JOIN lista_articulo la ON p.id = la.producto_id AND la.lista_precio_id = $1
+                     WHERE p.stock_actual > 0`,
                     [ listaId ]
                 );
                 valorStockVenta = parseFloat(valorRes.rows[0].valor || 0);
