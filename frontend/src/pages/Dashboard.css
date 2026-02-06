@@ -166,14 +166,205 @@
     margin: 0;
 }
 
+/* ==============================
+   MOBILE DASHBOARD STYLES
+   ============================== */
+
 @media (max-width: 768px) {
+    .dashboard {
+        padding: var(--spacing-lg) var(--spacing-md);
+    }
+
     .dashboard-header-container {
         flex-direction: column;
         align-items: flex-start;
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.75rem;
     }
 
     .company-indicator {
         text-align: left;
         width: 100%;
+        padding: var(--spacing-md);
+    }
+
+    .company-name {
+        font-size: 1.25rem;
+    }
+
+    /* Stats - 2 columns on mobile */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .stat-card {
+        padding: var(--spacing-md);
+        flex-direction: column;
+        text-align: center;
+        gap: var(--spacing-sm);
+        min-height: 100px;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .stat-content h3 {
+        font-size: 1.1rem;
+    }
+
+    .stat-content p {
+        font-size: 0.75rem;
+    }
+
+    /* Quick Actions - 2 columns */
+    .quick-actions {
+        margin-top: var(--spacing-lg);
+    }
+
+    .quick-actions h2 {
+        font-size: 1.25rem;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-sm);
+    }
+
+    .action-card {
+        padding: var(--spacing-md);
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .action-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 1.5rem;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .action-card h3 {
+        font-size: 0.9rem;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .action-card p {
+        font-size: 0.75rem;
+        display: none; /* Hide description on mobile */
+    }
+}
+
+/* Large mobile */
+@media (min-width: 414px) and (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+    }
+
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+    }
+}
+
+/* Small mobile */
+@media (max-width: 375px) {
+    .dashboard {
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-sm);
+    }
+
+    .stat-card {
+        padding: var(--spacing-sm);
+        min-height: 90px;
+    }
+
+    .stat-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .stat-content h3 {
+        font-size: 1rem;
+    }
+
+    .actions-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-sm);
+    }
+
+    .action-card {
+        padding: var(--spacing-sm);
+        min-height: 80px;
+    }
+
+    .action-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+    }
+
+    .action-card h3 {
+        font-size: 0.8rem;
+    }
+}
+
+/* Landscape mobile */
+@media (max-width: 812px) and (orientation: landscape) {
+    .dashboard {
+        padding: var(--spacing-lg) var(--spacing-md);
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--spacing-sm);
+    }
+
+    .stat-card {
+        flex-direction: row;
+        text-align: left;
+    }
+
+    .actions-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--spacing-sm);
+    }
+
+    .action-card {
+        padding: var(--spacing-sm);
+        min-height: 90px;
+    }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .dashboard {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .actions-grid {
+        grid-template-columns: repeat(3, 1fr);
     }
 }

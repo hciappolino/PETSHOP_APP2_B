@@ -406,6 +406,243 @@ tr:hover {
   to { transform: rotate(360deg); }
 }
 
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* ==============================
+   MOBILE RESPONSIVE STYLES
+   ============================== */
+
+/* Touch-friendly base styles */
+@media (max-width: 768px) {
+  /* Touch-friendly buttons - minimum 44px height */
+  .btn {
+    min-height: 44px;
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: 1rem;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 0.875rem;
+  }
+
+  .btn-lg {
+    min-height: 52px;
+    padding: var(--spacing-lg) var(--spacing-xl);
+    font-size: 1.125rem;
+  }
+
+  /* Form inputs touch-friendly */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    min-height: 48px;
+    padding: var(--spacing-md);
+    font-size: 1rem;
+  }
+
+  /* Cards more touchable */
+  .card {
+    padding: var(--spacing-lg);
+  }
+
+  /* Better spacing for mobile */
+  .container {
+    padding: 0 var(--spacing-md);
+  }
+
+  /* Grid adjustments */
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+  }
+
+  /* Modal full screen on mobile */
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  /* Table scroll */
+  .table-container {
+    margin: 0 calc(var(--spacing-md) * -1);
+    padding: 0 var(--spacing-md);
+    border-radius: 0;
+  }
+
+  table {
+    font-size: 0.875rem;
+  }
+
+  th, td {
+    padding: var(--spacing-sm) var(--spacing-sm);
+    font-size: 0.8rem;
+  }
+
+  /* Alert better touch */
+  .alert {
+    padding: var(--spacing-md);
+    font-size: 0.9rem;
+  }
+
+  /* Better spacing */
+  .mb-lg { margin-bottom: var(--spacing-md); }
+  .mb-xl { margin-bottom: var(--spacing-lg); }
+  .mt-lg { margin-top: var(--spacing-md); }
+  .gap-lg { gap: var(--spacing-md); }
+}
+
+/* Tablet styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .grid-4 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Large mobile - iPhone Plus, Pixel XL, etc. */
+@media (min-width: 414px) and (max-width: 768px) {
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 375px) {
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+
+  .card {
+    padding: var(--spacing-md);
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 812px) and (orientation: landscape) {
+  .grid-4 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .modal {
+    height: auto;
+    max-height: 90vh;
+  }
+}
+
+/* ==============================
+   TOUCH-FRIENDLY UTILITIES
+   ============================== */
+
+/* Touch target indicator */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Swipe-friendly container */
+.swipe-container {
+  touch-action: pan-y;
+  overflow-x: hidden;
+}
+
+/* Disable text selection on touch */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Safe area for notched phones */
+.safe-area {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Bottom navigation spacer */
+.bottom-nav-spacer {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+/* ==============================
+   DARK MODE & ACCESSIBILITY
+   ============================== */
+
+@media (prefers-color-scheme: dark) {
+  /* Already dark by default, but this ensures proper overrides */
+  body {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1f35 100%);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn {
+    border: 2px solid currentColor;
+  }
+
+  .card {
+    border-width: 2px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    border-width: 2px;
+  }
+}
+
 /* Alert */
 .alert {
     padding: var(--spacing-md);

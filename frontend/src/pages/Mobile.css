@@ -1,0 +1,557 @@
+/* ==============================
+   COMMON MOBILE STYLES
+   For pages without dedicated CSS
+   ============================== */
+
+/* Page container mobile */
+@media (max-width: 768px) {
+    .page-container {
+        padding: var(--spacing-md);
+    }
+
+    .page-header {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .page-header h2 {
+        font-size: 1.25rem;
+    }
+
+    /* Form layouts */
+    .form-row {
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+
+    .form-row .form-group {
+        width: 100%;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+
+    /* Search bar */
+    .search-bar {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .search-bar .form-input {
+        width: 100%;
+    }
+
+    .search-bar .btn {
+        width: 100%;
+    }
+
+    /* Filter bar */
+    .filter-bar {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .filter-bar .form-select {
+        width: 100%;
+    }
+
+    /* Card grid */
+    .card-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+    }
+
+    /* Stats row */
+    .stats-row {
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-sm);
+    }
+
+    .stat-item {
+        padding: var(--spacing-sm);
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+    }
+
+    /* Detail row */
+    .detail-row {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+
+    .detail-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .detail-value {
+        font-size: 1rem;
+    }
+
+    /* Action bar */
+    .action-bar {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .action-bar .btn {
+        width: 100%;
+    }
+
+    /* Empty state */
+    .empty-state {
+        padding: var(--spacing-xl);
+        text-align: center;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .empty-state h3 {
+        font-size: 1.25rem;
+    }
+
+    /* Loading state */
+    .loading-state {
+        padding: var(--spacing-xl);
+        text-align: center;
+    }
+
+    /* Error state */
+    .error-state {
+        padding: var(--spacing-lg);
+        text-align: center;
+    }
+
+    /* Pagination */
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--spacing-xs);
+    }
+
+    .pagination .btn {
+        min-width: 36px;
+        min-height: 36px;
+        padding: var(--spacing-xs);
+    }
+}
+
+/* ==============================
+   TABLE MOBILE STYLES
+   ============================== */
+
+@media (max-width: 768px) {
+    /* Responsive table wrapper */
+    .table-responsive {
+        margin: 0 calc(var(--spacing-md) * -1);
+        padding: 0 var(--spacing-md);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive table {
+        min-width: 600px;
+    }
+
+    /* Compact table */
+    .table-compact th,
+    .table-compact td {
+        padding: var(--spacing-sm);
+        font-size: 0.8rem;
+    }
+
+    /* Card-style table rows */
+    .table-cards tbody tr {
+        display: block;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--spacing-sm);
+        padding: var(--spacing-sm);
+    }
+
+    .table-cards tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-xs) 0;
+        border: none;
+    }
+
+    .table-cards tbody td:not(:last-child) {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table-cards tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+
+    /* Table actions */
+    .table-actions {
+        display: flex;
+        gap: var(--spacing-xs);
+        justify-content: flex-end;
+    }
+
+    .table-actions .btn {
+        min-width: 32px;
+        min-height: 32px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        font-size: 0.9rem;
+    }
+
+    /* Status badges in table */
+    .table-badge {
+        font-size: 0.7rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+}
+
+/* ==============================
+   FORM MOBILE STYLES
+   ============================== */
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: var(--spacing-md);
+    }
+
+    .form-card {
+        padding: var(--spacing-md);
+    }
+
+    .form-section {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .form-section-title {
+        font-size: 1rem;
+        margin-bottom: var(--spacing-md);
+        padding-bottom: var(--spacing-sm);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .form-group {
+        margin-bottom: var(--spacing-md);
+    }
+
+    .form-label {
+        font-size: 0.9rem;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+        min-height: 48px;
+        font-size: 1rem;
+        padding: var(--spacing-md);
+    }
+
+    .form-textarea {
+        min-height: 100px;
+    }
+
+    .form-hint {
+        font-size: 0.8rem;
+        margin-top: var(--spacing-xs);
+    }
+
+    .form-error {
+        font-size: 0.8rem;
+        margin-top: var(--spacing-xs);
+    }
+
+    /* Checkbox and radio groups */
+    .checkbox-group,
+    .radio-group {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .checkbox-item,
+    .radio-item {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--spacing-sm);
+        min-height: 44px;
+    }
+
+    .checkbox-item input,
+    .radio-item input {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Date/time inputs */
+    .date-input,
+    .time-input {
+        min-height: 48px;
+        font-size: 1rem;
+    }
+}
+
+/* ==============================
+   MODAL MOBILE STYLES
+   ============================== */
+
+@media (max-width: 768px) {
+    .modal-overlay {
+        align-items: flex-end;
+    }
+
+    .modal {
+        width: 100%;
+        max-width: 100%;
+        height: 90vh;
+        max-height: 90vh;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        margin: 0;
+        padding: var(--spacing-md);
+        animation: slideUpMobile 0.3s ease;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-md);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h2 {
+        font-size: 1.25rem;
+        margin: 0;
+    }
+
+    .modal-close {
+        min-width: 44px;
+        min-height: 44px;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: var(--bg-tertiary);
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .modal-footer {
+        margin-top: var(--spacing-md);
+        padding-top: var(--spacing-md);
+        border-top: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+        min-height: 52px;
+    }
+
+    @keyframes slideUpMobile {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+}
+
+/* ==============================
+   LIST VIEW MOBILE
+   ============================== */
+
+@media (max-width: 768px) {
+    .list-item {
+        display: flex;
+        flex-direction: column;
+        padding: var(--spacing-md);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .list-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .list-item-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .list-item-subtitle {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin: var(--spacing-xs) 0 0 0;
+    }
+
+    .list-item-body {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+
+    .list-item-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: var(--spacing-sm);
+        padding-top: var(--spacing-sm);
+        border-top: 1px solid var(--border);
+    }
+
+    .list-item-actions {
+        display: flex;
+        gap: var(--spacing-sm);
+    }
+}
+
+/* ==============================
+   EMPTY/LOADING/ERROR STATES
+   ============================== */
+
+@media (max-width: 768px) {
+    .state-container {
+        padding: var(--spacing-xl) var(--spacing-md);
+        text-align: center;
+    }
+
+    .state-icon {
+        font-size: 4rem;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .state-title {
+        font-size: 1.25rem;
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .state-message {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .state-action {
+        width: 100%;
+        min-height: 52px;
+    }
+}
+
+/* ==============================
+   NOTIFICATIONS & TOASTS
+   ============================== */
+
+@media (max-width: 768px) {
+    .toast-container {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: var(--spacing-md);
+        max-width: 100%;
+    }
+
+    .toast {
+        width: 100%;
+        padding: var(--spacing-md);
+        border-radius: var(--radius-md);
+    }
+
+    .notification {
+        width: 100%;
+        padding: var(--spacing-md);
+    }
+}
+
+/* ==============================
+   DATEPICKER & TIMEPICKER
+   ============================== */
+
+@media (max-width: 768px) {
+    .date-range {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .date-range .form-input {
+        width: 100%;
+    }
+
+    .quick-date-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+    }
+
+    .quick-date-buttons .btn {
+        flex: 1;
+        min-width: 80px;
+        min-height: 40px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ==============================
+   CHART & GRAPH CONTAINERS
+   ============================== */
+
+@media (max-width: 768px) {
+    .chart-container {
+        height: 250px;
+        padding: var(--spacing-sm);
+    }
+
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+
+    .chart-legend {
+        flex-wrap: wrap;
+        gap: var(--spacing-sm);
+    }
+}
