@@ -6,6 +6,8 @@
 -- ============================================
 DROP TABLE IF EXISTS fondos_movimientos CASCADE;
 DROP TABLE IF EXISTS stock_movimientos CASCADE;
+DROP TABLE IF EXISTS fondos_motivos CASCADE;
+DROP TABLE IF EXISTS stock_motivos CASCADE;
 DROP TABLE IF EXISTS venta_items CASCADE;
 DROP TABLE IF EXISTS ventas CASCADE;
 DROP TABLE IF EXISTS compras_renglones CASCADE;
@@ -186,6 +188,10 @@ CREATE TABLE ventas (
     sesion_caja_id INTEGER REFERENCES sesiones_caja(id),
     usuario_id INTEGER REFERENCES usuarios(id),
     tipo_venta VARCHAR(20) DEFAULT 'CONTADO' CHECK (tipo_venta IN ('CONTADO', 'CUENTA_CORRIENTE')),
+    cancelada BOOLEAN DEFAULT false,
+    cancelada_fecha TIMESTAMP,
+    cancelada_usuario_id INTEGER REFERENCES usuarios(id),
+    cancelada_motivo TEXT,
     notas TEXT
 );
 
@@ -199,17 +205,55 @@ CREATE TABLE venta_items (
     subtotal DECIMAL(12, 2) GENERATED ALWAYS AS (cantidad * precio_venta) STORED
 );
 
+CREATE TABLE stock_motivos (
+    id SMALLINT PRIMARY KEY,
+    codigo CHAR(2) UNIQUE NOT NULL,
+    nombre VARCHAR(30) NOT NULL,
+    es_revertible BOOLEAN DEFAULT FALSE,
+    orden SMALLINT DEFAULT 0
+);
+
+CREATE TABLE fondos_motivos (
+    id SMALLINT PRIMARY KEY,
+    codigo CHAR(2) UNIQUE NOT NULL,
+    nombre VARCHAR(30) NOT NULL,
+    es_revertible BOOLEAN DEFAULT FALSE,
+    orden SMALLINT DEFAULT 0
+);
+
+INSERT INTO stock_motivos (id, codigo, nombre, es_revertible, orden) VALUES
+(1, 'VE', 'VENTA', TRUE, 10),
+(2, 'CO', 'COMPRA', FALSE, 20),
+(3, 'AJ', 'AJUSTE', TRUE, 30),
+(4, 'AB', 'APERTURA_BOLSA', TRUE, 40),
+(5, 'DE', 'DEVOLUCION', FALSE, 50);
+
+INSERT INTO fondos_motivos (id, codigo, nombre, es_revertible, orden) VALUES
+(1, 'VE', 'VENTA', TRUE, 10),
+(2, 'CO', 'COMPRA', TRUE, 20),
+(3, 'GS', 'GASTO', FALSE, 30),
+(4, 'DP', 'DEPOSITO', FALSE, 40),
+(5, 'RT', 'RETIRO', FALSE, 50),
+(6, 'AJ', 'AJUSTE', TRUE, 60),
+(7, 'AC', 'APERTURA_CAJA', FALSE, 70),
+(8, 'CC', 'CIERRE_CAJA', FALSE, 80),
+(9, 'CA', 'AJUSTE_CAJA', TRUE, 90);
+
 CREATE TABLE stock_movimientos (
     id SERIAL PRIMARY KEY,
     producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE RESTRICT,
     tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('ENTRADA', 'SALIDA')),
     cantidad DECIMAL(12, 3) NOT NULL,
-    motivo VARCHAR(30) NOT NULL CHECK (motivo IN ('VENTA', 'COMPRA', 'AJUSTE', 'APERTURA_BOLSA', 'DEVOLUCION')),
+    motivo_id SMALLINT NOT NULL REFERENCES stock_motivos(id),
     referencia_id INTEGER,
     stock_anterior DECIMAL(12, 3),
     stock_nuevo DECIMAL(12, 3),
     usuario_id INTEGER REFERENCES usuarios(id),
     notas TEXT,
+    revertido BOOLEAN DEFAULT FALSE,
+    revertido_fecha TIMESTAMP,
+    revertido_por INTEGER REFERENCES usuarios(id),
+    revertido_motivo TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -218,15 +262,27 @@ CREATE TABLE fondos_movimientos (
     cuenta_id INTEGER NOT NULL REFERENCES cuentas_pago(id) ON DELETE RESTRICT,
     tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('INGRESO', 'EGRESO')),
     monto DECIMAL(12, 2) NOT NULL,
-    motivo VARCHAR(30) NOT NULL CHECK (motivo IN ('VENTA', 'COMPRA', 'GASTO', 'DEPOSITO', 'RETIRO', 'AJUSTE', 'APERTURA_CAJA', 'CIERRE_CAJA', 'AJUSTE_CAJA')),
+    motivo_id SMALLINT NOT NULL REFERENCES fondos_motivos(id),
     referencia_id INTEGER,
     sesion_caja_id INTEGER REFERENCES sesiones_caja(id),
     saldo_anterior DECIMAL(12, 2),
     saldo_nuevo DECIMAL(12, 2),
     usuario_id INTEGER REFERENCES usuarios(id),
     descripcion TEXT,
+    revertido BOOLEAN DEFAULT FALSE,
+    revertido_fecha TIMESTAMP,
+    revertido_por INTEGER REFERENCES usuarios(id),
+    revertido_motivo TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_stock_movimientos_producto_fecha ON stock_movimientos(producto_id, created_at DESC);
+CREATE INDEX idx_stock_movimientos_referencia ON stock_movimientos(referencia_id, motivo_id) WHERE motivo_id IN (1, 3);
+CREATE INDEX idx_stock_movimientos_revertido ON stock_movimientos(revertido, created_at DESC) WHERE revertido = FALSE;
+
+CREATE INDEX idx_fondos_movimientos_cuenta_fecha ON fondos_movimientos(cuenta_id, created_at DESC);
+CREATE INDEX idx_fondos_movimientos_referencia ON fondos_movimientos(referencia_id, motivo_id) WHERE motivo_id IN (1, 2, 6, 9);
+CREATE INDEX idx_fondos_movimientos_revertido ON fondos_movimientos(revertido, created_at DESC) WHERE revertido = FALSE;
 
 -- ============================================
 -- 3. TRIGGERS

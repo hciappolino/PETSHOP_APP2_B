@@ -4,6 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import './Dashboard.css';
 
+const formatCurrency = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function Dashboard() {
     const { user, isVendedor } = useAuth();
     const [stats, setStats] = useState({
@@ -20,11 +25,9 @@ export default function Dashboard() {
 
     const loadDashboardData = async () => {
         try {
-            // Load products (allowed for all)
             const productosRes = await api.get('/productos');
             let productosBajoRes = { data: [] };
 
-            // Only try stock-bajo if not vendedor (or if role allows)
             if (!isVendedor) {
                 try {
                     productosBajoRes = await api.get('/reportes/stock-bajo');
@@ -33,11 +36,9 @@ export default function Dashboard() {
                 }
             }
 
-            // Correct route: /sesiones-caja/current
             const sesionRes = await api.get('/sesiones-caja/current');
             const sesionData = sesionRes.data;
 
-            // Calcular valor del stock a precio de venta (solo productos con stock > 0)
             const valorStockVenta = productosRes.data
                 .filter(p => parseFloat(p.stock_actual || 0) > 0)
                 .reduce((acc, p) => {
@@ -50,8 +51,6 @@ export default function Dashboard() {
                 productosTotal: productosRes.data.length,
                 productosBajoStock: productosBajoRes.data.length,
                 sesionCajaAbierta: !!sesionData,
-                // If there's an open session, we could show more info, 
-                // but for now we keep it simple or use a default
                 ventasHoy: sesionData ? 'Activa' : 'Sin sesión',
                 valorStockVenta
             });
@@ -135,7 +134,7 @@ export default function Dashboard() {
                             <span style={{ fontSize: '1.8rem' }}>💵</span>
                         </div>
                         <div className="stat-content">
-                            <h3>${parseFloat(stats.valorStockVenta || 0).toFixed(2)}</h3>
+                            <h3>{formatCurrency(stats.valorStockVenta)}</h3>
                             <p>Valor Stock (Precio Venta)</p>
                         </div>
                     </div>

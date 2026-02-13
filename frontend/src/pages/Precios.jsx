@@ -12,6 +12,7 @@ export default function Precios() {
     const [success, setSuccess] = useState(null);
     const [showNewListModal, setShowNewListModal] = useState(false);
     const [newListData, setNewListData] = useState({ nombre: '', descripcion: '', margen_sugerido: 30, es_default: false });
+    const [editMode, setEditMode] = useState(null); // 'precios' | 'margenes' | null
 
     const { isAdmin, isGerente } = useAuth();
     const canEdit = isAdmin || isGerente;
@@ -37,6 +38,7 @@ export default function Precios() {
 
     const handleSelectLista = async (lista) => {
         setSelectedLista(lista);
+        setEditMode(null); // Resetear modo de edición al cambiar lista
         setLoadingPrecios(true);
         try {
             const response = await api.get(`/precios/lista/${lista.id}`);
@@ -103,7 +105,20 @@ export default function Precios() {
     const calculateSuggested = (costo, margen) => {
         const m = (typeof margen === 'number' && !isNaN(margen)) ? margen : 0;
         const c = parseFloat(costo) || 0;
-        return c * (1 + m / 100);
+        return Math.round(c * (1 + m / 100));
+    };
+
+    const formatPrice = (price) => Math.round(price).toLocaleString('es-AR');
+    const getFactorKg = (producto) => {
+        const direct = parseFloat(producto?.factor_conversion);
+        if (Number.isFinite(direct) && direct > 0) return direct;
+        const source = `${producto?.nombre || ''} ${producto?.codigo || ''}`;
+        const match = source.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+        if (match) {
+            const parsed = parseFloat(match[1].replace(',', '.'));
+            if (Number.isFinite(parsed) && parsed > 0) return parsed;
+        }
+        return 0;
     };
 
     return (
@@ -156,9 +171,36 @@ export default function Precios() {
                                     <h3 className="m-0">Precios: {selectedLista.nombre}</h3>
                                     <p className="text-sm text-muted">Margen sugerido por la lista: {(selectedLista.margen_sugerido || 0)}%</p>
                                 </div>
-                                <div className="text-sm text-muted">
-                                    Ult. actualización automática: Hoy
-                                </div>
+                                {canEdit && (
+                                    <div className="flex gap-sm">
+                                        {editMode === 'precios' ? (
+                                            <button className="btn btn-success" onClick={() => setEditMode(null)}>
+                                                ✓ Listo (Precios)
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                className="btn btn-outline"
+                                                onClick={() => setEditMode('precios')}
+                                                disabled={!canEdit}
+                                            >
+                                                Editar Precios
+                                            </button>
+                                        )}
+                                        {editMode === 'margenes' ? (
+                                            <button className="btn btn-success" onClick={() => setEditMode(null)}>
+                                                ✓ Listo (Márgenes)
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                className="btn btn-outline"
+                                                onClick={() => setEditMode('margenes')}
+                                                disabled={!canEdit}
+                                            >
+                                                Editar Márgenes
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {loadingPrecios ? (
@@ -182,50 +224,59 @@ export default function Precios() {
                                                     const costo = parseFloat(p.costo_ultima_compra) || 0;
                                                     const precioU = parseFloat(p.precio_venta_unidad) || 0;
                                                     const margenCalc = costo > 0 ? ((precioU - costo) / costo) * 100 : (selectedLista.margen_sugerido || 0);
+                                                    const isEditingPrecios = editMode === 'precios';
+                                                    const isEditingMargenes = editMode === 'margenes';
                                                     return (
                                                         <tr key={p.id}>
                                                             <td>
                                                                 <div>{p.nombre}</div>
                                                                 <code className="text-xs text-muted">{p.codigo}</code>
                                                             </td>
-                                                            <td>${costo.toFixed(2)}</td>
+                                                            <td>${formatPrice(costo)}</td>
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="form-input text-right py-1 w-[100px]"
-                                                                    value={typeof p._margen === 'number' ? p._margen.toFixed(2) : margenCalc.toFixed(2)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen: val, precio_venta_unidad: calculateSuggested(x.costo_ultima_compra, val) } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, val);
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen: val, precio_venta_unidad: nuevoPrecio } : x));
-                                                                        await updatePrice(p.id, { precio_venta_unidad: parseFloat(nuevoPrecio) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingMargenes ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[100px]"
+                                                                        value={typeof p._margen === 'number' ? Math.round(p._margen) : Math.round(margenCalc)}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, val);
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen: val, precio_venta_unidad: nuevoPrecio } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, val);
+                                                                            await updatePrice(p.id, { precio_venta_unidad: nuevoPrecio });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span>{Math.round(margenCalc)}%</span>
+                                                                )}
                                                             </td>
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="form-input text-right py-1 w-[120px]"
-                                                                    value={(parseFloat(p.precio_venta_unidad) || 0).toFixed(2)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        const newMargin = (parseFloat(p.costo_ultima_compra || 0) > 0) ? ((val - parseFloat(p.costo_ultima_compra || 0)) / parseFloat(p.costo_ultima_compra || 0)) * 100 : 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen: newMargin } : x));
-                                                                        await updatePrice(p.id, { precio_venta_unidad: parseFloat(val) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingPrecios ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[120px]"
+                                                                        value={Math.round(p.precio_venta_unidad) || 0}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMargin = costo > 0 ? ((val - costo) / costo) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen: newMargin } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMargin = costo > 0 ? ((val - costo) / costo) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen: newMargin } : x));
+                                                                            await updatePrice(p.id, { precio_venta_unidad: val });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span>${formatPrice(p.precio_venta_unidad)}</span>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     );
@@ -242,106 +293,125 @@ export default function Precios() {
                                                 <tr>
                                                     <th>Producto</th>
                                                     <th>Precio Compra (Bolsa)</th>
-                                                    <th>Margen Bolsa (%)</th>
+                                                    <th>Margen (%)</th>
                                                     <th>Precio Venta (Bolsa)</th>
-                                                    <th>Margen Kilo (%)</th>
+                                                    <th>Costo x Kilo</th>
+                                                    <th>Margen (%)</th>
                                                     <th>Precio Venta (Kilo)</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {precios.filter(p => p.tipo_presentacion === 'BOLSA').map(p => {
                                                     const costoBolsa = parseFloat(p.costo_ultima_compra) || 0;
-                                                    const factor = parseFloat(p.factor_conversion) || 1;
+                                                    const factor = getFactorKg(p);
                                                     const costoKilo = factor > 0 ? costoBolsa / factor : 0;
                                                     const precioBolsa = parseFloat(p.precio_venta_unidad) || 0;
                                                     const precioKilo = parseFloat(p.precio_venta_granel) || 0;
                                                     const margenBolsaCalc = costoBolsa > 0 ? ((precioBolsa - costoBolsa) / costoBolsa) * 100 : (selectedLista.margen_sugerido || 0);
                                                     const margenKiloCalc = costoKilo > 0 ? ((precioKilo - costoKilo) / costoKilo) * 100 : (selectedLista.margen_sugerido || 0);
+                                                    const isEditingPrecios = editMode === 'precios';
+                                                    const isEditingMargenes = editMode === 'margenes';
                                                     return (
                                                         <tr key={p.id}>
                                                             <td>
                                                                 <div>{p.nombre}</div>
-                                                                <code className="text-xs text-muted">{p.codigo} • {p.factor_conversion}u</code>
+                                                                <code className="text-xs text-muted">{p.codigo} • {factor}kg</code>
                                                             </td>
-                                                            <td>${costoBolsa.toFixed(2)}</td>
+                                                            <td>${formatPrice(costoBolsa)}</td>
+                                                            {/* Margen Bolsa */}
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="1"
-                                                                    className="form-input text-right py-1 w-[100px]"
-                                                                    value={typeof p._margen_bolsa === 'number' ? String(Math.round(p._margen_bolsa)) : String(Math.round(margenBolsaCalc))}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_bolsa: val, precio_venta_unidad: calculateSuggested(x.costo_ultima_compra, typeof val === 'number' ? val : 0) } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const raw = parseFloat(e.target.value) || 0;
-                                                                        const rounded = Math.round(raw);
-                                                                        const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, rounded);
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_bolsa: rounded, precio_venta_unidad: nuevoPrecio } : x));
-                                                                        await updatePrice(p.id, { precio_venta_unidad: parseFloat(nuevoPrecio) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingMargenes ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[80px]"
+                                                                        value={typeof p._margen_bolsa === 'number' ? Math.round(p._margen_bolsa) : Math.round(margenBolsaCalc)}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecio = Math.round(costoBolsa * (1 + val / 100));
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_bolsa: val, precio_venta_unidad: nuevoPrecio } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecio = Math.round(costoBolsa * (1 + val / 100));
+                                                                            await updatePrice(p.id, { precio_venta_unidad: nuevoPrecio });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-sm">{Math.round(margenBolsaCalc)}%</span>
+                                                                )}
                                                             </td>
+                                                            {/* Precio Bolsa */}
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="form-input text-right py-1 w-[120px]"
-                                                                    value={(parseFloat(p.precio_venta_unidad) || 0).toFixed(2)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        const newMargin = (parseFloat(p.costo_ultima_compra || 0) > 0) ? ((val - parseFloat(p.costo_ultima_compra || 0)) / parseFloat(p.costo_ultima_compra || 0)) * 100 : 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen_bolsa: newMargin } : x));
-                                                                        await updatePrice(p.id, { precio_venta_unidad: parseFloat(val) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingPrecios ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[100px]"
+                                                                        value={Math.round(p.precio_venta_unidad) || 0}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMargin = costoBolsa > 0 ? ((val - costoBolsa) / costoBolsa) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen_bolsa: newMargin } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMargin = costoBolsa > 0 ? ((val - costoBolsa) / costoBolsa) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen_bolsa: newMargin } : x));
+                                                                            await updatePrice(p.id, { precio_venta_unidad: val });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span>${formatPrice(p.precio_venta_unidad)}</span>
+                                                                )}
                                                             </td>
+                                                            <td>${formatPrice(costoKilo)}</td>
+                                                            {/* Margen Kilo */}
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="1"
-                                                                    className="form-input text-right py-1 w-[100px]"
-                                                                    value={typeof p._margen_kilo === 'number' ? String(Math.round(p._margen_kilo)) : String(Math.round(margenKiloCalc))}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                                                                        const nuevoPrecioKilo = costoKilo * (1 + (typeof val === 'number' ? val : 0) / 100);
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_kilo: val, precio_venta_granel: nuevoPrecioKilo } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const raw = parseFloat(e.target.value) || 0;
-                                                                        const rounded = Math.round(raw);
-                                                                        const nuevoPrecioKilo = costoKilo * (1 + rounded / 100);
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_kilo: rounded, precio_venta_granel: nuevoPrecioKilo } : x));
-                                                                        await updatePrice(p.id, { precio_venta_granel: parseFloat(nuevoPrecioKilo) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingMargenes ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[80px]"
+                                                                        value={typeof p._margen_kilo === 'number' ? Math.round(p._margen_kilo) : Math.round(margenKiloCalc)}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecioKilo = Math.round(costoKilo * (1 + val / 100));
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_kilo: val, precio_venta_granel: nuevoPrecioKilo } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const nuevoPrecioKilo = Math.round(costoKilo * (1 + val / 100));
+                                                                            await updatePrice(p.id, { precio_venta_granel: nuevoPrecioKilo });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-sm">{Math.round(margenKiloCalc)}%</span>
+                                                                )}
                                                             </td>
+                                                            {/* Precio Kilo */}
                                                             <td>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="form-input text-right py-1 w-[120px]"
-                                                                    value={(parseFloat(p.precio_venta_granel) || 0).toFixed(2)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val } : x));
-                                                                    }}
-                                                                    onBlur={async (e) => {
-                                                                        const val = parseFloat(e.target.value) || 0;
-                                                                        const newMarginKilo = costoKilo > 0 ? ((val - costoKilo) / costoKilo) * 100 : 0;
-                                                                        setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val, _margen_kilo: newMarginKilo } : x));
-                                                                        await updatePrice(p.id, { precio_venta_granel: parseFloat(val) });
-                                                                    }}
-                                                                    disabled={!canEdit}
-                                                                />
+                                                                {isEditingPrecios ? (
+                                                                    <input
+                                                                        type="number"
+                                                                        step="1"
+                                                                        className="form-input text-right py-1 w-[100px]"
+                                                                        value={Math.round(p.precio_venta_granel) || 0}
+                                                                        onChange={(e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMarginKilo = costoKilo > 0 ? ((val - costoKilo) / costoKilo) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val, _margen_kilo: newMarginKilo } : x));
+                                                                        }}
+                                                                        onBlur={async (e) => {
+                                                                            const val = parseFloat(e.target.value) || 0;
+                                                                            const newMarginKilo = costoKilo > 0 ? ((val - costoKilo) / costoKilo) * 100 : 0;
+                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val, _margen_kilo: newMarginKilo } : x));
+                                                                            await updatePrice(p.id, { precio_venta_granel: val });
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span>${formatPrice(p.precio_venta_granel)}</span>
+                                                                )}
                                                             </td>
                                                         </tr>
                                                     );

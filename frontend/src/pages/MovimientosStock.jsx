@@ -173,7 +173,7 @@ export default function MovimientosStock() {
                                         </span>
                                     </td>
                                     <td>{mov.cantidad}</td>
-                                    <td>{mov.motivo}</td>
+                                    <td>{mov.motivo_nombre || mov.motivo || '-'}</td>
                                     <td className="text-secondary text-sm">{mov.notas || '-'}</td>
                                 </tr>
                             ))}

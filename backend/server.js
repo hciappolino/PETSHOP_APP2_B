@@ -234,6 +234,9 @@ async function initializeDatabase() {
             console.log('[InitDB] Sin migraciones pendientes');
         }
         
+    // Fix nullable constraints for optimized schema
+        await fixNullableConstraints();
+        
         // Fix: Ensure view has marca_nombre and fabricante_nombre
         await fixPromocionesView();
 
@@ -296,6 +299,43 @@ async function runMigrations() {
             console.log(`Migración ${file} completada`);
         } else {
             console.log(`Migración ${file} ya ejecutada`);
+        }
+    }
+}
+
+// Fix nullable constraints for optimized schema with motivo_id
+async function fixNullableConstraints() {
+    try {
+        console.log('[InitDB] Verificando constraints nullable...');
+
+        const columnCheck = await pool.query(
+            `SELECT table_name, column_name
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name IN ('stock_movimientos', 'fondos_movimientos')
+               AND column_name = 'motivo'`
+        );
+        const hasStockMotivo = columnCheck.rows.some(r => r.table_name === 'stock_movimientos');
+        const hasFondosMotivo = columnCheck.rows.some(r => r.table_name === 'fondos_movimientos');
+
+        if (hasStockMotivo) {
+            await pool.query(`ALTER TABLE stock_movimientos ALTER COLUMN motivo DROP NOT NULL`);
+            console.log('[InitDB] ✓ stock_movimientos.motivo ahora es nullable');
+        } else {
+            console.log('[InitDB] stock_movimientos.motivo no existe, omitiendo');
+        }
+
+        if (hasFondosMotivo) {
+            await pool.query(`ALTER TABLE fondos_movimientos ALTER COLUMN motivo DROP NOT NULL`);
+            console.log('[InitDB] ✓ fondos_movimientos.motivo ahora es nullable');
+        } else {
+            console.log('[InitDB] fondos_movimientos.motivo no existe, omitiendo');
+        }
+
+    } catch (error) {
+        // Ignore error if already nullable
+        if (!error.message.includes('does not exist')) {
+            console.warn('[InitDB] Warning: No se pudo ajustar constraints nullable:', error.message);
         }
     }
 }

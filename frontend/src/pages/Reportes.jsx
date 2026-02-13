@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
+const formatCurrency = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function Reportes() {
     const [ventasDiarias, setVentasDiarias] = useState([]);
     const [ventasDetalles, setVentasDetalles] = useState([]);
@@ -13,7 +18,7 @@ export default function Reportes() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [dateRange, setDateRange] = useState('ESTA_SEMANA'); // ESTA_SEMANA, ESTE_MES, ESTE_ANIO, PERSONALIZADO
+    const [dateRange, setDateRange] = useState('ESTA_SEMANA');
 
     const { isAdmin } = useAuth();
 
@@ -116,7 +121,6 @@ export default function Reportes() {
 
             {error && <div className="alert alert-danger mb-md">{error}</div>}
 
-            {/* Tabs */}
             <div className="flex gap-sm mb-lg border-bottom pb-sm flex-wrap">
                 <button
                     className={`btn btn-sm ${activeTab === 'dashboard' ? 'btn-primary' : 'btn-outline'}`}
@@ -171,7 +175,7 @@ export default function Reportes() {
                                     <span className="text-muted text-sm">TOTAL VENTAS</span>
                                     <span style={{ fontSize: '2rem' }}>💰</span>
                                 </div>
-                                <h2 className="text-success m-0">${resumenFinanciero.ventas.toLocaleString()}</h2>
+                                <h2 className="text-success m-0">{formatCurrency(resumenFinanciero.ventas)}</h2>
                                 <p className="text-xs text-muted mt-sm">Total facturado en el periodo</p>
                             </div>
 
@@ -180,7 +184,7 @@ export default function Reportes() {
                                     <span className="text-muted text-sm">COSTO MERCADERÍA</span>
                                     <span style={{ fontSize: '2rem' }}>📦</span>
                                 </div>
-                                <h2 className="text-primary m-0">${resumenFinanciero.mercaderia.toLocaleString()}</h2>
+                                <h2 className="text-primary m-0">{formatCurrency(resumenFinanciero.mercaderia)}</h2>
                                 <p className="text-xs text-muted mt-sm">Inversión en productos</p>
                             </div>
 
@@ -189,7 +193,7 @@ export default function Reportes() {
                                     <span className="text-muted text-sm">VALOR STOCK (PRECIO VENTA)</span>
                                     <span style={{ fontSize: '2rem' }}>💲</span>
                                 </div>
-                                <h2 className="text-primary m-0">${(resumenFinanciero.valor_stock_venta || 0).toLocaleString()}</h2>
+                                <h2 className="text-primary m-0">{formatCurrency(resumenFinanciero.valor_stock_venta || 0)}</h2>
                                 <p className="text-xs text-muted mt-sm">Valor del inventario a precio de venta (lista predeterminada)</p>
                             </div>
 
@@ -198,7 +202,7 @@ export default function Reportes() {
                                     <span className="text-muted text-sm">GASTOS OPERATIVOS</span>
                                     <span style={{ fontSize: '2rem' }}>📑</span>
                                 </div>
-                                <h2 className="text-warning m-0">${resumenFinanciero.insumos.toLocaleString()}</h2>
+                                <h2 className="text-warning m-0">{formatCurrency(resumenFinanciero.insumos)}</h2>
                                 <p className="text-xs text-muted mt-sm">Gastos e insumos</p>
                             </div>
 
@@ -207,7 +211,7 @@ export default function Reportes() {
                                     <span className="text-muted text-sm">GANANCIA ESTIMADA</span>
                                     <span style={{ fontSize: '2rem' }}>🎯</span>
                                 </div>
-                                <h2 className="text-purple m-0" style={{ color: '#8b5cf6' }}>${resumenFinanciero.ganancia.toLocaleString()}</h2>
+                                <h2 className="text-purple m-0" style={{ color: '#8b5cf6' }}>{formatCurrency(resumenFinanciero.ganancia)}</h2>
                                 <p className="text-xs text-muted mt-sm">Ventas - Costos - Gastos</p>
                             </div>
                         </div>
@@ -242,7 +246,7 @@ export default function Reportes() {
                                                             </div>
                                                         </td>
                                                         <td className="text-center font-bold">{v.cantidad}</td>
-                                                        <td className="font-bold text-success">${parseFloat(v.subtotal).toFixed(2)}</td>
+                                                        <td className="font-bold text-success">{formatCurrency(v.subtotal)}</td>
                                                         <td><span className={`badge ${v.tipo_venta === 'CONTADO' ? 'badge-success' : 'badge-info'}`}>{v.tipo_venta}</span></td>
                                                     </tr>
                                                 ))
@@ -269,7 +273,7 @@ export default function Reportes() {
                                             <span className="text-xs text-muted rotate-45 mt-sm whitespace-nowrap">
                                                 {new Date(v.fecha).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                                             </span>
-                                            <strong className="text-xs">${Math.round(v.total_ventas)}</strong>
+                                            <strong className="text-xs">{formatCurrency(v.total_ventas)}</strong>
                                         </div>
                                     ))}
                                 </div>
@@ -347,9 +351,9 @@ export default function Reportes() {
                                         {ganancias.map((g, i) => (
                                             <tr key={i}>
                                                 <td>{new Date(g.fecha).toLocaleDateString()}</td>
-                                                <td>${parseFloat(g.venta_total).toFixed(2)}</td>
-                                                <td className="text-muted">${parseFloat(g.costo_total_estimado).toFixed(2)}</td>
-                                                <td className="text-success font-bold">${parseFloat(g.ganancia_estimada).toFixed(2)}</td>
+                                                <td>{formatCurrency(g.venta_total)}</td>
+                                                <td className="text-muted">{formatCurrency(g.costo_total_estimado)}</td>
+                                                <td className="text-success font-bold">{formatCurrency(g.ganancia_estimada)}</td>
                                                 <td>{((g.ganancia_estimada / g.venta_total) * 100).toFixed(1)}%</td>
                                             </tr>
                                         ))}
@@ -375,7 +379,7 @@ export default function Reportes() {
                                             gastosMes.map((g, i) => (
                                                 <tr key={i}>
                                                     <td>{new Date(g.fecha).toLocaleDateString()}</td>
-                                                    <td className="font-bold text-danger">${parseFloat(g.total_gastos).toFixed(2)}</td>
+                                                    <td className="font-bold text-danger">{formatCurrency(g.total_gastos)}</td>
                                                 </tr>
                                             ))
                                         ) : (

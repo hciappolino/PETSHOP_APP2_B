@@ -71,9 +71,24 @@ export default function InspeccionGranel() {
         reportesFiltrados = reportesFiltrados.filter(r => r.fecha_fin);
     }
 
-    const tieneAlerta = (diferencia) => {
-        const diff = parseFloat(diferencia) || 0;
-        return Math.abs(diff) > 0.05;
+    const getEstadoAlerta = (reporte) => {
+        const kilosTeoricos = parseFloat(reporte.kilos_teoricos) || 0;
+        const kilosVendidos = parseFloat(reporte.kilos_vendidos_reales) || 0;
+        const diferencia = parseFloat(reporte.diferencia_kilos) || 0;
+        const estaCerrada = !!reporte.fecha_fin;
+
+        const vendidosMasQueBolsa = kilosVendidos > kilosTeoricos;
+        const diferenciaExcesivaCerrada = estaCerrada && Math.abs(diferencia) > 2;
+        const alerta = vendidosMasQueBolsa || diferenciaExcesivaCerrada;
+
+        let mensaje = 'Registro dentro de parámetros.';
+        if (vendidosMasQueBolsa) {
+            mensaje = 'Se vendieron más kilos que los disponibles en la bolsa.';
+        } else if (diferenciaExcesivaCerrada) {
+            mensaje = 'Bolsa cerrada con diferencia mayor a 2 kg.';
+        }
+
+        return { alerta, mensaje };
     };
 
     const toggleExpandir = (index) => {
@@ -237,7 +252,7 @@ export default function InspeccionGranel() {
                             <tbody>
                                 {reportesFiltrados.map((reporte, idx) => {
                                     const diferencia = reporte.diferencia_kilos;
-                                    const alerta = tieneAlerta(diferencia);
+                                    const { alerta, mensaje } = getEstadoAlerta(reporte);
                                     const estaExpandido = expandido === idx;
                                     
                                     return (
@@ -252,7 +267,9 @@ export default function InspeccionGranel() {
                                                 }}
                                             >
                                                 <td style={{ textAlign: 'center' }}>
-                                                    {alerta && <span style={{ fontSize: '1.2rem' }}>⚠️</span>}
+                                                    <span style={{ fontSize: '1.2rem' }}>
+                                                        {alerta ? '⚠️' : '✅'}
+                                                    </span>
                                                 </td>
                                                 <td>
                                                     <strong>{reporte.producto_nombre}</strong>
@@ -343,9 +360,9 @@ export default function InspeccionGranel() {
                                                                         fontWeight: 600,
                                                                         color: alerta ? 'var(--danger)' : 'var(--success)'
                                                                     }}>
-                                                                        {alerta 
-                                                                            ? `⚠️ Diferencia de ${Math.abs(diferencia).toFixed(3)} kg detectada` 
-                                                                            : `✓ Diferencia mínima: ${diferencia.toFixed(3)} kg`
+                                                                        {alerta
+                                                                            ? `⚠️ ${mensaje}`
+                                                                            : `✓ Sin alertas: ${diferencia.toFixed(3)} kg`
                                                                         }
                                                                     </p>
                                                                     <p style={{ 

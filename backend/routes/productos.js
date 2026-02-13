@@ -7,6 +7,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
+// Constantes de motivos
+const MOTIVO_AJUSTE = 3;
+const MOTIVO_APERTURA_BOLSA = 4;
+
 // SIMPLIFIED FOR SINGLE COMPANY - No multitenancy
 
 // Get all products
@@ -203,17 +207,17 @@ router.post('/:id/ajustar-stock', authenticateToken, async (req, res) => {
 
         await client.query(
             `INSERT INTO stock_movimientos 
-             (producto_id, tipo, cantidad, motivo, stock_anterior, stock_nuevo, usuario_id, notas)
+             (producto_id, tipo, cantidad, motivo_id, stock_anterior, stock_nuevo, usuario_id, notas)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
                 id,
                 cantidadAjuste > 0 ? 'ENTRADA' : 'SALIDA',
                 Math.abs(cantidadAjuste),
-                motivo || 'AJUSTE',
+                MOTIVO_AJUSTE,
                 stockAnterior,
                 stockNuevo,
                 req.user.id,
-                notas
+                notas || `[AJUSTE: ${motivo || 'Manual'}]`
             ]
         );
 
@@ -280,9 +284,9 @@ router.post('/:id/abrir-bolsa', authenticateToken, async (req, res) => {
 
         await client.query(
             `INSERT INTO stock_movimientos 
-             (producto_id, tipo, cantidad, motivo, stock_anterior, stock_nuevo, usuario_id, notas)
+             (producto_id, tipo, cantidad, motivo_id, stock_anterior, stock_nuevo, usuario_id, notas)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [ id, 'SALIDA', 1, 'APERTURA_BOLSA', stockAnterior, stockNuevo, req.user.id, notas || 'Apertura de bolsa para venta a granel']
+            [ id, 'SALIDA', 1, MOTIVO_APERTURA_BOLSA, stockAnterior, stockNuevo, req.user.id, notas || 'Apertura de bolsa para venta a granel']
         );
 
         await client.query('COMMIT');

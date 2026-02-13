@@ -3,7 +3,6 @@ import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-// Debounce hook for search optimization
 function useDebounce(value, delay = 300) {
     const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -17,6 +16,11 @@ function useDebounce(value, delay = 300) {
 
     return debouncedValue;
 }
+
+const formatCurrency = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
 
 export default function Deudores() {
     const [deudores, setDeudores] = useState([]);
@@ -34,15 +38,9 @@ export default function Deudores() {
     const { isAdmin, isGerente } = useAuth();
     const canEdit = isAdmin || isGerente;
 
-    // Memoized total debt calculation
     const totalDeuda = useMemo(() => {
         return deudores.reduce((sum, d) => sum + parseFloat(d.saldo_cc || 0), 0);
     }, [deudores]);
-
-    // Memoized formatted total
-    const formattedTotal = useMemo(() => {
-        return parseFloat(totalDeuda || 0).toFixed(2);
-    }, [totalDeuda]);
 
     const loadDeudores = useCallback(async () => {
         try {
@@ -50,7 +48,6 @@ export default function Deudores() {
             const response = await api.get('/clientes/reportes/deudores', {
                 params: { search: debouncedSearch, sortBy }
             });
-            // Handle both array (legacy) and object (paginated) responses
             setDeudores(Array.isArray(response.data) ? response.data : response.data.data || []);
             setError('');
         } catch (err) {
@@ -63,10 +60,6 @@ export default function Deudores() {
     useEffect(() => {
         loadDeudores();
     }, [loadDeudores]);
-
-    const formatCurrency = useCallback((value) => {
-        return parseFloat(value || 0).toFixed(2);
-    }, []);
 
     const handleViewDetails = useCallback(async (cliente) => {
         setSelectedCliente(cliente);
@@ -101,7 +94,7 @@ export default function Deudores() {
                 </div>
                 <div className="text-right">
                     <div className="text-sm text-secondary">Deuda Total</div>
-                    <div className="text-2xl font-bold text-danger">${formattedTotal}</div>
+                    <div className="text-2xl font-bold text-danger">{formatCurrency(totalDeuda)}</div>
                 </div>
             </div>
 
@@ -158,7 +151,7 @@ export default function Deudores() {
                                         <td>{cliente.telefono || '-'}</td>
                                         <td>
                                             <span className="badge badge-danger">
-                                                ${formatCurrency(cliente.saldo_cc)}
+                                                {formatCurrency(cliente.saldo_cc)}
                                             </span>
                                         </td>
                                         <td>
@@ -187,7 +180,6 @@ export default function Deudores() {
                 </div>
             )}
 
-            {/* Modal: Detalles de Deuda */}
             {showDetailModal && selectedCliente && (
                 <div className="modal-overlay" onClick={handleCloseModal}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -222,7 +214,7 @@ export default function Deudores() {
                                 <div className="col-span-2">
                                     <span className="text-sm text-secondary">Saldo Actual</span>
                                     <div className="text-2xl font-bold text-danger">
-                                        ${formatCurrency(selectedCliente.saldo_cc)}
+                                        {formatCurrency(selectedCliente.saldo_cc)}
                                     </div>
                                 </div>
                             </div>
@@ -262,7 +254,7 @@ export default function Deudores() {
                                                             )}
                                                         </td>
                                                         <td className={m.tipo === 'PAGO' ? 'text-success font-bold' : 'text-danger font-bold'}>
-                                                            {m.tipo === 'PAGO' ? '+' : '-'}${formatCurrency(m.monto)}
+                                                            {m.tipo === 'PAGO' ? '+' : '-'}{formatCurrency(m.monto)}
                                                         </td>
                                                     </tr>
                                                 ))

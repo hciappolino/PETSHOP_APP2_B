@@ -17,11 +17,17 @@ export default function POS() {
     const [loading, setLoading] = useState(true);
     const [processingSale, setProcessingSale] = useState(false);
     const [hasOpenSession, setHasOpenSession] = useState(false);
+    const [alertasGranel, setAlertasGranel] = useState([]);
 
     // Modal state for bulk weight selection
     const [showWeightModal, setShowWeightModal] = useState(false);
     const [selectedProductForWeight, setSelectedProductForWeight] = useState(null);
     const [customWeight, setCustomWeight] = useState('');
+
+    // Modal state for Apertura Bolsa
+    const [showBagModal, setShowBagModal] = useState(false);
+    const [bagSearchTerm, setBagSearchTerm] = useState('');
+    const [processingBag, setProcessingBag] = useState(false);
 
     useEffect(() => {
         loadInitialData();
@@ -44,8 +50,13 @@ export default function POS() {
             ]);
 
             setClientes(clientRes.data);
-            // Filtrar cuentas EXTERNA del POS - no están disponibles para cobros
-            const cuentasFiltradas = cuentasRes.data.filter(c => c.tipo !== 'EXTERNA');
+            // Filtrar cuentas no disponibles para cobros en POS (EXTERNA y "caja fondo")
+            const cuentasFiltradas = cuentasRes.data.filter(c => {
+                if (c.tipo === 'EXTERNA') return false;
+                const nombre = (c.nombre || '').toString().toLowerCase().trim();
+                if (nombre === 'caja fondo' || nombre.includes('caja fondo')) return false;
+                return true;
+            });
             setCuentasPago(cuentasFiltradas);
             setListasPrecios(listasRes.data);
             setPromociones(promoRes.data);
@@ -56,10 +67,22 @@ export default function POS() {
 
             const cajaOperativa = cuentasRes.data.find(c => c.es_caja_operativa) || cuentasRes.data[0];
             if (cajaOperativa) setSelectedCuenta(cajaOperativa.id);
+
+            loadAlertasGranel();
         } catch (error) {
             alert('Error al cargar datos iniciales: ' + (error.response?.data?.error || error.message));
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadAlertasGranel = async () => {
+        try {
+            const response = await api.get('/reportes/alertas-granel');
+            setAlertasGranel(response.data || []);
+        } catch (error) {
+            console.warn('No se pudieron cargar alertas de granel:', error.response?.data?.error || error.message);
+            setAlertasGranel([]);
         }
     };
 
@@ -80,10 +103,9 @@ export default function POS() {
     );
 
     const handleAddToCart = (producto, esGranel = false) => {
+        // Para granel, agregar directamente con 1kg por defecto (más rápido)
         if (esGranel) {
-            setSelectedProductForWeight(producto);
-            setCustomWeight('');
-            setShowWeightModal(true);
+            addToCart(producto, 1, true);
         } else {
             addToCart(producto, 1, false);
         }
@@ -314,6 +336,31 @@ export default function POS() {
         }
     };
 
+    const handleAbrirBolsa = async (producto) => {
+        if (!confirm(`¿Confirmar apertura de bolsa para ${producto.nombre}?\nSe descontará 1 unidad del stock.`)) {
+            return;
+        }
+        
+        setProcessingBag(true);
+        try {
+            await api.post('/stock-movimientos', {
+                producto_id: producto.id,
+                tipo: 'SALIDA',
+                cantidad: 1,
+                motivo: 'APERTURA_BOLSA'
+            });
+            
+            alert(`✓ Bolsa abierta: ${producto.nombre}\nStock descontado correctamente.`);
+            setShowBagModal(false);
+            setBagSearchTerm('');
+            loadProductos(); // Refresh stock
+        } catch (error) {
+            alert('Error al abrir bolsa: ' + (error.response?.data?.error || error.message));
+        } finally {
+            setProcessingBag(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="container" style={{ padding: '3rem', textAlign: 'center' }}>
@@ -324,6 +371,25 @@ export default function POS() {
 
     return (
         <div className="pos-container">
+            {alertasGranel.length > 0 && (
+                <div className="alert alert-warning" style={{ 
+                    margin: '0 0 1rem 0',
+                    padding: '0.75rem 1rem',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    color: '#92400e',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 'var(--radius-md)'
+                }}>
+                    <strong>⚠️ Advertencia:</strong> Es probable que necesites abrir una nueva bolsa de{' '}
+                    {alertasGranel.map((a, idx) => (
+                        <span key={a.apertura_id}>
+                            {a.producto_nombre} ({parseFloat(a.kilos_disponibles || 0).toFixed(2)} kg)
+                            {idx < alertasGranel.length - 1 ? ', ' : ''}
+                        </span>
+                    ))}
+                    .
+                </div>
+            )}
             {!hasOpenSession && (
                 <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.85)', zIndex: 1000 }}>
                     <div className="card text-center p-xl" style={{ maxWidth: '400px' }}>
@@ -342,16 +408,63 @@ export default function POS() {
                         <h3>Seleccionar Peso: {selectedProductForWeight.nombre}</h3>
                         <p className="text-muted mb-lg">Elija una opción rápida o ingrese el peso exacto</p>
 
-                        <div className="grid grid-cols-3 gap-sm mb-lg">
-                            {[0.25, 0.5, 1, 1.5, 2, 3, 5, 10, 15].map(weight => (
-                                <button
-                                    key={weight}
-                                    className="btn btn-outline"
-                                    onClick={() => addToCart(selectedProductForWeight, weight, true)}
-                                >
-                                    {weight}kg
-                                </button>
-                            ))}
+                        <div className="grid grid-cols-4 gap-sm mb-lg">
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 0.1, true)}
+                            >
+                                100g
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 0.25, true)}
+                            >
+                                250g
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 0.5, true)}
+                            >
+                                500g
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 1, true)}
+                            >
+                                1kg
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 1.5, true)}
+                            >
+                                1.5kg
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 2, true)}
+                            >
+                                2kg
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 3, true)}
+                            >
+                                3kg
+                            </button>
+                            <button
+                                className="btn btn-outline"
+                                style={{ fontSize: '14px', padding: '12px' }}
+                                onClick={() => addToCart(selectedProductForWeight, 5, true)}
+                            >
+                                5kg
+                            </button>
                         </div>
 
                         <div className="form-group">
@@ -384,6 +497,98 @@ export default function POS() {
                 </div>
             )}
 
+            {/* Apertura Bolsa Modal */}
+            {showBagModal && (
+                <div className="modal-overlay" style={{ zIndex: 1200 }}>
+                    <div className="modal" style={{ maxWidth: '500px' }}>
+                        <div className="flex justify-between items-center mb-lg">
+                            <h3>📦 Apertura de Bolsa</h3>
+                            <button 
+                                className="btn btn-sm btn-outline"
+                                onClick={() => { setShowBagModal(false); setBagSearchTerm(''); }}
+                            >✕</button>
+                        </div>
+                        
+                        <p className="text-muted mb-md" style={{ fontSize: '13px' }}>
+                            Seleccione un producto para abrir bolsa (se descontará 1 unidad del stock)
+                        </p>
+
+                        <div className="form-group mb-md">
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="Buscar por nombre, marca o código..."
+                                value={bagSearchTerm}
+                                onChange={(e) => setBagSearchTerm(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div style={{ 
+                            maxHeight: '300px', 
+                            overflowY: 'auto',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px'
+                        }}>
+                            {productos
+                                .filter(p => p.tipo_presentacion === 'BOLSA')
+                                .filter(p => 
+                                    p.nombre.toLowerCase().includes(bagSearchTerm.toLowerCase()) ||
+                                    (p.marca && p.marca.toLowerCase().includes(bagSearchTerm.toLowerCase())) ||
+                                    (p.codigo && p.codigo.toLowerCase().includes(bagSearchTerm.toLowerCase()))
+                                )
+                                .map(producto => (
+                                    <div 
+                                        key={producto.id}
+                                        className="bag-product-item"
+                                        style={{ 
+                                            padding: '12px',
+                                            borderBottom: '1px solid var(--border-color)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            backgroundColor: 'var(--bg-hover)'
+                                        }}
+                                        onClick={() => !processingBag && handleAbrirBolsa(producto)}
+                                    >
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '14px' }}>
+                                                {producto.marca ? producto.marca.toUpperCase() : ''}
+                                            </div>
+                                            <div style={{ fontSize: '13px' }}>{producto.nombre}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                                Stock: {Math.max(0, parseFloat(producto.stock_actual))} | {producto.codigo || 'Sin código'}
+                                            </div>
+                                        </div>
+                                        <button 
+                                            className="btn btn-sm btn-warning"
+                                            disabled={processingBag}
+                                        >
+                                            {processingBag ? '...' : '✓ Abrir'}
+                                        </button>
+                                    </div>
+                                ))
+                            }
+                            {productos.filter(p => p.tipo_presentacion === 'BOLSA').length === 0 && (
+                                <div className="p-md text-center text-muted">
+                                    No hay productos tipo BOLSA
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-lg">
+                            <button 
+                                className="btn btn-outline w-full" 
+                                onClick={() => { setShowBagModal(false); setBagSearchTerm(''); }}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="pos-products">
                 <div className="pos-header">
                     <h2>Productos</h2>
@@ -408,6 +613,13 @@ export default function POS() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{ flex: 1 }}
                         />
+                        <button
+                            className="btn btn-warning"
+                            onClick={() => setShowBagModal(true)}
+                            title="Apertura de Bolsa - Descontar 1 unidad del stock"
+                        >
+                            📦 Apertura Bolsas
+                        </button>
                     </div>
                 </div>
 
@@ -449,12 +661,29 @@ export default function POS() {
                                     + Unidad
                                 </button>
                                 {producto.tipo_presentacion === 'BOLSA' && (
-                                    <button
-                                        className="btn btn-sm btn-success"
-                                        onClick={() => handleAddToCart(producto, true)}
-                                    >
-                                        + Granel
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+                                        <button
+                                            className="btn btn-sm btn-success granel-quick-add"
+                                            onClick={() => addToCart(producto, 1, true)}
+                                            title="1 kilogramo"
+                                        >
+                                            1kg
+                                        </button>
+                                        <button
+                                            className="btn btn-sm btn-success granel-quick-add"
+                                            onClick={() => addToCart(producto, 0.5, true)}
+                                            title="500 gramos"
+                                        >
+                                            ½kg
+                                        </button>
+                                        <button
+                                            className="btn btn-sm btn-success granel-quick-add"
+                                            onClick={() => addToCart(producto, 0.1, true)}
+                                            title="100 gramos"
+                                        >
+                                            100g
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -491,7 +720,7 @@ export default function POS() {
                                     <input
                                         type="number"
                                         className="form-input"
-                                        style={{ width: '80px' }}
+                                        style={{ width: '70px' }}
                                         value={item.cantidad}
                                         onChange={(e) => updateQuantity(index, e.target.value)}
                                         min={item.es_granel ? "0.1" : "1"}

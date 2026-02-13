@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { addDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
+const formatCurrency = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function MovimientosFondos() {
     const [movimientos, setMovimientos] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -76,7 +81,6 @@ export default function MovimientosFondos() {
                 <p className="text-secondary">Registro de ingresos y egresos de fondos</p>
             </div>
 
-            {/* Filtros de Fecha */}
             <div className="card p-md mb-md">
                 <h3 className="mb-md">Filtrar por Fecha</h3>
                 <div className="flex gap-md" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
@@ -142,7 +146,6 @@ export default function MovimientosFondos() {
                 )}
             </div>
 
-            {/* Tabla de Movimientos */}
             <div className="card overflow-hidden">
                 {loading ? (
                     <div className="p-md text-center">Cargando...</div>
@@ -170,8 +173,8 @@ export default function MovimientosFondos() {
                                             {mov.tipo}
                                         </span>
                                     </td>
-                                    <td>${mov.monto}</td>
-                                    <td>{mov.motivo}</td>
+                                    <td>{formatCurrency(mov.monto)}</td>
+                                    <td>{mov.motivo_nombre || '-'}</td>
                                     <td className="text-secondary text-sm">{mov.descripcion || '-'}</td>
                                 </tr>
                             ))}

@@ -9,10 +9,11 @@ router.get('/', authenticateToken, async (req, res) => {
     try {
         const { cuenta_id, sesion_caja_id, tipo, fecha_desde, fecha_hasta } = req.query;
         let query = `
-            SELECT fm.*, cp.nombre as cuenta_nombre, u.nombre as usuario_nombre 
+            SELECT fm.*, cp.nombre as cuenta_nombre, u.nombre as usuario_nombre, fm2.nombre as motivo_nombre
             FROM fondos_movimientos fm
             JOIN cuentas_pago cp ON fm.cuenta_id = cp.id
             JOIN usuarios u ON fm.usuario_id = u.id
+            LEFT JOIN fondos_motivos fm2 ON fm.motivo_id = fm2.id
             WHERE 1=1
         `;
         const params = [];
@@ -64,7 +65,7 @@ export default router;
 router.post('/', authenticateToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        const { cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, descripcion } = req.body;
+        const { cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, descripcion } = req.body;
 
         if (!cuenta_id || !tipo || !monto) {
             return res.status(400).json({ error: 'Faltan datos requeridos: cuenta_id, tipo, monto' });
@@ -92,12 +93,19 @@ router.post('/', authenticateToken, async (req, res) => {
 
         await client.query('UPDATE cuentas_pago SET saldo_actual = $1 WHERE id = $2', [saldoNuevo, cuenta_id]);
 
+        // Obtener motivo_id (requerido)
+        let motivoId = motivo_id !== undefined && motivo_id !== null ? parseInt(motivo_id) : null;
+        if (!motivoId || Number.isNaN(motivoId)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Debe proporcionar motivo_id valido' });
+        }
+
         const insertRes = await client.query(
             `INSERT INTO fondos_movimientos
-             (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+             (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
              RETURNING *`,
-            [cuenta_id, tipo, montoNum, motivo || null, referencia_id || null, sesion_caja_id || null, saldoAnterior, saldoNuevo, req.user.id, descripcion || null]
+            [cuenta_id, tipo, montoNum, motivoId, referencia_id || null, sesion_caja_id || null, saldoAnterior, saldoNuevo, req.user.id, descripcion || null]
         );
 
         await client.query('COMMIT');

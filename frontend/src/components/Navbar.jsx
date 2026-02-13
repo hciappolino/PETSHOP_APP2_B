@@ -80,6 +80,7 @@ export const Navbar = () => {
                                             <Link to="/deudores" className={isActive('/deudores') ? 'active' : ''}>💳 Deudores</Link>
                                             <Link to="/precios" className={isActive('/precios') ? 'active' : ''}>🏷️ Precios</Link>
                                             <Link to="/promociones" className={isActive('/promociones') ? 'active' : ''}>🎁 Promociones</Link>
+                                            <Link to="/ventas" className={isActive('/ventas') ? 'active' : ''}>📋 Listado de Ventas</Link>
                                         </>
                                     )}
                                 </div>
@@ -132,13 +133,26 @@ export const Navbar = () => {
                                     {canSeeAll && <Link to="/movimientos-fondos" className={isActive('/movimientos-fondos') ? 'active' : ''}>🔄 Movimientos</Link>}
                                     {canSeeAll && <Link to="/fondos/nuevo" className={isActive('/fondos/nuevo') ? 'active' : ''}>📝 Nuevo Comprobante</Link>}
                                     <Link to="/caja" className={isActive('/caja') ? 'active' : ''}>🏧 Caja</Link>
+                                    <Link to="/reportes/caja-diaria" className={isActive('/reportes/caja-diaria') ? 'active' : ''}>📊 Reporte Caja</Link>
                                 </div>
                             )}
                         </div>
 
                         {/* REPORTES: Solo Admin/Gerente */}
                         {canSeeAll && (
-                            <Link to="/reportes" className={`nav-link ${isActive('/reportes') ? 'active' : ''}`}>📊 Reportes</Link>
+                            <div className="nav-item-dropdown" onMouseEnter={() => setActiveDropdown('reportes')}>
+                                <span className={`nav-link ${activeDropdown === 'reportes' ? 'active' : ''}`}>
+                                    📊 Reportes ▾
+                                </span>
+                                {activeDropdown === 'reportes' && (
+                                    <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
+                                        <Link to="/reportes" className={isActive('/reportes') ? 'active' : ''}>📊 Dashboard</Link>
+                                        <Link to="/reportes/ventas" className={isActive('/reportes/ventas') ? 'active' : ''}>💰 Ventas</Link>
+                                        <Link to="/reportes/stock-minimo" className={isActive('/reportes/stock-minimo') ? 'active' : ''}>📉 Stock Bajo</Link>
+                                        <Link to="/reportes/cliente-cc" className={isActive('/reportes/cliente-cc') ? 'active' : ''}>💳 Estado de Cuenta</Link>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -195,6 +209,7 @@ export const Navbar = () => {
                                         <Link to="/deudores" onClick={closeMobileMenu}>💳 Deudores</Link>
                                         <Link to="/precios" onClick={closeMobileMenu}>🏷️ Precios</Link>
                                         <Link to="/promociones" onClick={closeMobileMenu}>🎁 Promociones</Link>
+                                        <Link to="/ventas" onClick={closeMobileMenu}>📋 Listado de Ventas</Link>
                                     </>
                                 )}
                             </div>
@@ -250,16 +265,27 @@ export const Navbar = () => {
                                 {canSeeAll && <Link to="/movimientos-fondos" onClick={closeMobileMenu}>🔄 Movimientos</Link>}
                                 {canSeeAll && <Link to="/fondos/nuevo" onClick={closeMobileMenu}>📝 Nuevo Comprobante</Link>}
                                 <Link to="/caja" onClick={closeMobileMenu}>🏧 Caja</Link>
+                                <Link to="/reportes/caja-diaria" onClick={closeMobileMenu}>📊 Reporte Caja</Link>
                             </div>
                         )}
                     </div>
 
                     {/* Reportes - Admin/Gerente only */}
                     {canSeeAll && (
-                        <Link to="/reportes" className={`mobile-nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={closeMobileMenu}>
-                            <span className="nav-icon">📊</span>
-                            <span>Reportes</span>
-                        </Link>
+                        <div className={`mobile-dropdown ${mobileOpenDropdowns['reportes'] ? 'open' : ''}`}>
+                            <div className="mobile-dropdown-trigger" onClick={() => toggleMobileDropdown('reportes')}>
+                                <span>📊 Reportes</span>
+                                <span>{mobileOpenDropdowns['reportes'] ? '▲' : '▼'}</span>
+                            </div>
+                            {mobileOpenDropdowns['reportes'] && (
+                                <div className="mobile-dropdown-menu">
+                                    <Link to="/reportes" onClick={closeMobileMenu}>📊 Dashboard</Link>
+                                    <Link to="/reportes/ventas" onClick={closeMobileMenu}>💰 Ventas</Link>
+                                    <Link to="/reportes/stock-minimo" onClick={closeMobileMenu}>📉 Stock Bajo</Link>
+                                    <Link to="/reportes/cliente-cc" onClick={closeMobileMenu}>💳 Estado de Cuenta</Link>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* User info */}

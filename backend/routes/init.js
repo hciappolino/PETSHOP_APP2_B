@@ -95,6 +95,8 @@ router.post('/drop-db', async (req, res) => {
             DROP VIEW IF EXISTS v_promociones_actuales CASCADE;
             DROP TABLE IF EXISTS fondos_movimientos CASCADE;
             DROP TABLE IF EXISTS stock_movimientos CASCADE;
+            DROP TABLE IF EXISTS fondos_motivos CASCADE;
+            DROP TABLE IF EXISTS stock_motivos CASCADE;
             DROP TABLE IF EXISTS venta_items CASCADE;
             DROP TABLE IF EXISTS ventas CASCADE;
             DROP TABLE IF EXISTS compras_renglones CASCADE;

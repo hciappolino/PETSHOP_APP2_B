@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import './Caja.css';
 
+const formatMoney = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function Caja() {
     const [sesionActual, setSesionActual] = useState(null);
     const [historial, setHistorial] = useState([]);
@@ -128,15 +133,15 @@ export default function Caja() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted">Monto Inicial:</span>
-                                <span className="font-bold">${parseFloat(sesionActual.saldo_apertura || 0).toFixed(2)}</span>
+                                <span className="font-bold">{formatMoney(sesionActual.saldo_apertura || 0)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted">Ventas Acumuladas:</span>
-                                <span className="font-bold">${(parseFloat(sesionActual.saldo_cierre_esperado || 0) - parseFloat(sesionActual.saldo_apertura || 0)).toFixed(2)}</span>
+                                <span className="font-bold">{formatMoney((parseFloat(sesionActual.saldo_cierre_esperado || 0) - parseFloat(sesionActual.saldo_apertura || 0)))}</span>
                             </div>
                             <div className="flex justify-between border-t pt-sm mt-sm">
                                 <span className="font-bold">Total Esperado:</span>
-                                <span className="font-bold text-primary">${parseFloat(sesionActual.saldo_cierre_esperado || sesionActual.saldo_apertura).toFixed(2)}</span>
+                                <span className="font-bold text-primary">{formatMoney(sesionActual.saldo_cierre_esperado || sesionActual.saldo_apertura)}</span>
                             </div>
                         </div>
                     </div>
@@ -188,12 +193,12 @@ export default function Caja() {
                                     <tr key={s.id}>
                                         <td>{new Date(s.apertura_fecha).toLocaleDateString()}</td>
                                         <td>{new Date(s.cierre_fecha).toLocaleDateString()}</td>
-                                        <td>${parseFloat(s.saldo_apertura).toFixed(2)}</td>
-                                        <td>${parseFloat(s.saldo_cierre_esperado).toFixed(2)}</td>
-                                        <td>${parseFloat(s.saldo_cierre_real).toFixed(2)}</td>
+                                        <td>{formatMoney(s.saldo_apertura)}</td>
+                                        <td>{formatMoney(s.saldo_cierre_esperado)}</td>
+                                        <td>{formatMoney(s.saldo_cierre_real)}</td>
                                         <td>
                                             <span className={`badge ${parseFloat(s.diferencia) === 0 ? 'badge-success' : 'badge-danger'}`}>
-                                                ${parseFloat(s.diferencia).toFixed(2)}
+                                                {formatMoney(s.diferencia)}
                                             </span>
                                         </td>
                                     </tr>
@@ -206,4 +211,3 @@ export default function Caja() {
         </div>
     );
 }
-

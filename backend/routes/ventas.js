@@ -4,6 +4,10 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Constantes de motivos (ID = 1 = VENTA)
+const MOTIVO_VENTA = 1;
+const MOTIVO_FONDO_VENTA = 1; // fondos_motivos.id para VENTA
+
 // Get all sales
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -26,13 +30,13 @@ router.get('/', authenticateToken, async (req, res) => {
         }
 
         if (fecha_desde) {
-            query += ` AND v.fecha >= $${paramCount}`;
+            query += ` AND v.fecha >= $${paramCount}::date`;
             params.push(fecha_desde);
             paramCount++;
         }
 
         if (fecha_hasta) {
-            query += ` AND v.fecha <= $${paramCount}`;
+            query += ` AND v.fecha < $${paramCount}::date + interval '1 day'`;
             params.push(fecha_hasta);
             paramCount++;
         }
@@ -196,9 +200,9 @@ router.post('/', authenticateToken, async (req, res) => {
 
                 const movResult = await client.query(
                     `INSERT INTO stock_movimientos 
-                    (producto_id, tipo, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo, usuario_id, notas)
+                    (producto_id, tipo, cantidad, motivo_id, referencia_id, stock_anterior, stock_nuevo, usuario_id, notas)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                    [ producto_id, 'SALIDA', cantidad, 'VENTA', ventaId,
+                    [ producto_id, 'SALIDA', cantidad, MOTIVO_VENTA, ventaId,
                         stockAnterior, stockNuevo, req.user.id, 'Venta por unidad'
                     ]
                 );
@@ -242,9 +246,9 @@ router.post('/', authenticateToken, async (req, res) => {
 
             const fundResult = await client.query(
                 `INSERT INTO fondos_movimientos 
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [ cuenta_pago_id, 'INGRESO', total, 'VENTA', ventaId, sesionCajaId, saldoAnterior, saldoNuevo, req.user.id, `Venta ID: ${ventaId}`]
+                [ cuenta_pago_id, 'INGRESO', total, MOTIVO_FONDO_VENTA, ventaId, sesionCajaId, saldoAnterior, saldoNuevo, req.user.id, `Venta ID: ${ventaId}`]
             );
             console.log('Fund movement created:', fundResult.rows[0]?.id || 'unknown');
         }
@@ -276,6 +280,141 @@ router.post('/', authenticateToken, async (req, res) => {
         await client.query('ROLLBACK');
         console.error('Create sale error:', error);
         res.status(500).json({ error: 'Error al crear venta: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Cancel sale
+router.post('/:id/cancelar', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+        const { motivo } = req.body;
+
+        if (!motivo || motivo.trim() === '') {
+            return res.status(400).json({ error: 'Debe proporcionar un motivo para cancelar la venta' });
+        }
+
+        await client.query('BEGIN');
+
+        // Check if sale exists and is not already cancelled
+        const saleCheck = await client.query(
+            'SELECT * FROM ventas WHERE id = $1 FOR UPDATE',
+            [id]
+        );
+        
+        if (saleCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Venta no encontrada' });
+        }
+        
+        const sale = saleCheck.rows[0];
+        
+        if (sale.cancelada) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'La venta ya está cancelada' });
+        }
+
+        // Get sale items
+        const itemsResult = await client.query(
+            'SELECT * FROM venta_items WHERE venta_id = $1',
+            [id]
+        );
+
+        // Restore stock for each non-granel item
+        for (const item of itemsResult.rows) {
+            if (!item.es_granel) {
+                await client.query(
+                    'UPDATE productos SET stock_actual = stock_actual + $1 WHERE id = $2',
+                    [item.cantidad, item.producto_id]
+                );
+            }
+        }
+
+        // Mark stock movements as reverted (instead of creating new movements)
+        // Update all stock movements for this venta to revertido = true
+        await client.query(
+            `UPDATE stock_movimientos 
+             SET revertido = true, 
+                 revertido_fecha = CURRENT_TIMESTAMP,
+                 revertido_por = $1,
+                 revertido_motivo = $2
+             WHERE referencia_id = $3 AND motivo_id = $4 AND revertido = false`,
+            [req.user.id, motivo, id, MOTIVO_VENTA]
+        );
+
+        // Mark fund movements as reverted (instead of creating new movements)
+        if (sale.cuenta_pago_id && sale.tipo_venta !== 'CUENTA_CORRIENTE') {
+            // Update account balance (EGRESO effect by removing the INGRESO)
+            await client.query(
+                'UPDATE cuentas_pago SET saldo_actual = saldo_actual - $1 WHERE id = $2',
+                [sale.total, sale.cuenta_pago_id]
+            );
+            
+            // Find the original VENTA fund movement
+            const fundMovCheck = await client.query(
+                'SELECT id FROM fondos_movimientos WHERE referencia_id = $1 AND motivo_id = $2 AND revertido = false',
+                [id, MOTIVO_FONDO_VENTA]
+            );
+            
+            if (fundMovCheck.rows.length > 0) {
+                // Mark as reverted instead of creating new movement
+                await client.query(
+                    `UPDATE fondos_movimientos 
+                     SET revertido = true, 
+                         revertido_fecha = CURRENT_TIMESTAMP,
+                         revertido_por = $1,
+                         revertido_motivo = $2
+                     WHERE referencia_id = $3 AND motivo_id = $4 AND revertido = false`,
+                    [req.user.id, motivo, id, MOTIVO_FONDO_VENTA]
+                );
+            }
+        }
+
+        // Reverse client CC if CUENTA_CORRIENTE
+        if (sale.tipo_venta === 'CUENTA_CORRIENTE' && sale.cliente_id) {
+            await client.query(
+                'UPDATE clientes SET saldo_cc = saldo_cc - $1 WHERE id = $2',
+                [sale.total, sale.cliente_id]
+            );
+        }
+
+        // Decrement promotion usage counts
+        const promoUsos = await client.query(
+            'SELECT * FROM promocion_usos WHERE venta_id = $1',
+            [id]
+        );
+        
+        for (const uso of promoUsos.rows) {
+            await client.query(
+                'UPDATE promociones SET uso_actual = uso_actual - 1 WHERE id = $1',
+                [uso.promocion_id]
+            );
+        }
+
+        // Mark sale as cancelled
+        await client.query(
+            `UPDATE ventas SET 
+                cancelada = true, 
+                cancelada_fecha = CURRENT_TIMESTAMP,
+                cancelada_usuario_id = $1,
+                cancelada_motivo = $2
+             WHERE id = $3`,
+            [req.user.id, motivo, id]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+            message: 'Venta cancelada exitosamente',
+            venta_id: id
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Cancel sale error:', error);
+        res.status(400).json({ error: 'Error al cancelar venta: ' + error.message });
     } finally {
         client.release();
     }

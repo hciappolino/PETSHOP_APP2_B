@@ -26,11 +26,17 @@ export default function FondosNuevo() {
             
             // Determinar tipo (INGRESO/EGRESO) según el tipoMovimiento
             let tipo = 'EGRESO';
-            let motivo = tipoMovimiento;
-            
+            let motivoId = 6; // AJUSTE por defecto
+
             if (tipoMovimiento === 'DEPOSITO') {
                 tipo = 'INGRESO';
-                motivo = 'DEPOSITO';
+                motivoId = 4;
+            } else if (tipoMovimiento === 'RETIRO') {
+                motivoId = 5;
+            } else if (tipoMovimiento === 'GASTO') {
+                motivoId = 3;
+            } else if (tipoMovimiento === 'AJUSTE') {
+                motivoId = 6;
             }
             
             setLoading(true);
@@ -38,7 +44,7 @@ export default function FondosNuevo() {
                 cuenta_id: parseInt(form.cuenta_id),
                 tipo,
                 monto: parseFloat(form.monto),
-                motivo,
+                motivo_id: motivoId,
                 descripcion: form.descripcion
             });
             alert('Movimiento registrado exitosamente');

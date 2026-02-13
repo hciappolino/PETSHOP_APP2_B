@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
+const formatCurrency = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function Clientes() {
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -9,7 +14,6 @@ export default function Clientes() {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState({ activo: 'true' });
 
-    // Modals state
     const [showFormModal, setShowFormModal] = useState(false);
     const [showCCModal, setShowCCModal] = useState(false);
     const [selectedCliente, setSelectedCliente] = useState(null);
@@ -20,7 +24,6 @@ export default function Clientes() {
     const [cuentasPago, setCuentasPago] = useState([]);
     const [loadingAccounts, setLoadingAccounts] = useState(false);
 
-    // Form state
     const [formData, setFormData] = useState({
         nombre: '',
         dni_cuit: '',
@@ -137,8 +140,7 @@ export default function Clientes() {
             const res = await api.post(`/clientes/${selectedCliente.id}/pagos`, paymentForm);
             setShowPayModal(false);
             setPaymentForm({ monto: '', cuenta_pago_id: '', referencia: '' });
-            setError(''); // Clear any previous errors
-            // refresh cliente data and cc modal if open
+            setError('');
             loadClientes();
             if (showCCModal) {
                 const response = await api.get(`/clientes/${selectedCliente.id}/cuenta-corriente`);
@@ -215,7 +217,7 @@ export default function Clientes() {
                                     <td>{c.telefono || '-'}</td>
                                     <td>
                                         <span className={parseFloat(c.saldo_cc) > 0 ? 'text-danger font-bold' : 'text-success'}>
-                                            ${parseFloat(c.saldo_cc).toFixed(2)}
+                                            {formatCurrency(c.saldo_cc)}
                                         </span>
                                     </td>
                                     <td>
@@ -243,7 +245,6 @@ export default function Clientes() {
                 </div>
             )}
 
-            {/* Modal de Formulario */}
             {showFormModal && (
                 <div className="modal-overlay">
                     <div className="modal">
@@ -322,7 +323,6 @@ export default function Clientes() {
                 </div>
             )}
 
-            {/* Modal de Cuenta Corriente */}
             {showCCModal && (
                 <div className="modal-overlay">
                     <div className="modal" style={{ maxWidth: '800px' }}>
@@ -339,17 +339,17 @@ export default function Clientes() {
                                     <div className="flex justify-between">
                                         <span>Estado de Cuenta:</span>
                                         <h2 className={parseFloat(ccData.cliente.saldo_cc) > 0 ? 'text-danger' : 'text-success'}>
-                                            ${parseFloat(ccData.cliente.saldo_cc).toFixed(2)}
+                                            {formatCurrency(ccData.cliente.saldo_cc)}
                                         </h2>
                                     </div>
                                 </div>
 
-                                        <div className="flex justify-between items-center">
-                                            <h4>Últimos Movimientos (Ventas y Pagos a CC)</h4>
-                                            <div>
-                                                <button className="btn btn-sm btn-primary" onClick={() => openPayModal(selectedCliente)}>Registrar Pago</button>
-                                            </div>
-                                        </div>
+                                <div className="flex justify-between items-center">
+                                    <h4>Últimos Movimientos (Ventas y Pagos a CC)</h4>
+                                    <div>
+                                        <button className="btn btn-sm btn-primary" onClick={() => openPayModal(selectedCliente)}>Registrar Pago</button>
+                                    </div>
+                                </div>
                                 <div className="table-container mt-md">
                                     <table>
                                         <thead>
@@ -373,7 +373,7 @@ export default function Clientes() {
                                                         )}
                                                     </td>
                                                     <td className={m.tipo === 'PAGO' ? 'text-success font-bold' : 'text-danger font-bold'}>
-                                                        {m.tipo === 'PAGO' ? '+' : '-'}${parseFloat(m.monto).toFixed(2)}
+                                                        {m.tipo === 'PAGO' ? '+' : '-'}{formatCurrency(m.monto)}
                                                     </td>
                                                 </tr>
                                             )) : (
@@ -381,9 +381,6 @@ export default function Clientes() {
                                             )}
                                         </tbody>
                                     </table>
-                                </div>
-                                <div className="mt-lg p-md text-muted text-sm border-top">
-                                    * Los pagos se registran como movimientos de fondos que afectan el saldo.
                                 </div>
                             </>
                         )}
@@ -394,7 +391,6 @@ export default function Clientes() {
                 </div>
             )}
 
-            {/* Modal: Registrar Pago */}
             {showPayModal && (
                 <div className="modal-overlay">
                     <div className="modal">

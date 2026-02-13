@@ -2,6 +2,11 @@
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
+const formatMoney = (amount) => {
+    const num = Math.round(parseFloat(amount) || 0);
+    return '$' + num.toLocaleString('es-AR');
+};
+
 export default function Fondos() {
     const [cuentas, setCuentas] = useState([]);
     const [balanceTotal, setBalanceTotal] = useState(0);
@@ -9,9 +14,8 @@ export default function Fondos() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedCuenta, setSelectedCuenta] = useState('');
-    const [dateRange, setDateRange] = useState('HOY'); // HOY, AYER, MES, MES_ANT, TODO
+    const [dateRange, setDateRange] = useState('HOY');
 
-    // Estados para ABM de cuentas
     const [showAccountModal, setShowAccountModal] = useState(false);
     const [editingAccount, setEditingAccount] = useState(null);
     const [accountForm, setAccountForm] = useState({
@@ -20,7 +24,6 @@ export default function Fondos() {
         saldo_inicial: ''
     });
 
-    // Estados para balanceo
     const [showBalanceModal, setShowBalanceModal] = useState(false);
     const [balancingAccount, setBalancingAccount] = useState(null);
     const [balanceDestinoId, setBalanceDestinoId] = useState('');
@@ -193,15 +196,6 @@ export default function Fondos() {
         }
     };
 
-    // Función para formatear moneda con separadores de miles
-    const formatMoney = (amount) => {
-        const num = parseFloat(amount) || 0;
-        return num.toLocaleString('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    };
-
     const getTipoIcon = (tipo) => {
         switch (tipo) {
             case 'EFECTIVO': return '💵';
@@ -237,7 +231,7 @@ export default function Fondos() {
                     )}
                     <div className="card" style={{ padding: '1rem 2rem', background: 'var(--bg-secondary)', borderLeft: '4px solid var(--primary-color)' }}>
                         <small className="text-muted block">Balance Total Consolidado</small>
-                        <h2 className="m-0">${formatMoney(balanceTotal)}</h2>
+                        <h2 className="m-0">{formatMoney(balanceTotal)}</h2>
                     </div>
                 </div>
             </div>
@@ -264,7 +258,7 @@ export default function Fondos() {
                         </div>
                         <div className="mt-md">
                             <small className="text-muted">Saldo Disponible</small>
-                            <h2 className="m-0">${formatMoney(cuenta.saldo_actual)}</h2>
+                            <h2 className="m-0">{formatMoney(cuenta.saldo_actual)}</h2>
                         </div>
                         {canEdit && (
                             <div className="flex gap-sm mt-md pt-md border-top">
@@ -286,7 +280,6 @@ export default function Fondos() {
                                     <button
                                         className="btn btn-sm btn-outline"
                                         onClick={(e) => { e.stopPropagation(); handleToggleAccountStatus(cuenta); }}
-                                        title="Desactivar cuenta (solo si no tiene movimientos)"
                                     >
                                         👁️‍🗨️ Desactivar
                                     </button>
@@ -302,7 +295,6 @@ export default function Fondos() {
                                     <button
                                         className="btn btn-sm btn-danger"
                                         onClick={(e) => { e.stopPropagation(); handleDeleteAccount(cuenta); }}
-                                        title="Eliminar cuenta (solo sin movimientos ni saldo)"
                                     >
                                         🗑️ Eliminar
                                     </button>
@@ -345,7 +337,7 @@ export default function Fondos() {
                     </div>
                 </div>
 
-                    <div className="table-container">
+                <div className="table-container">
                     <table>
                         <thead>
                             <tr>
@@ -374,11 +366,11 @@ export default function Fondos() {
                                             </span>
                                         </td>
                                         <td className={`font-bold ${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'}`}>
-                                            {m.tipo === 'INGRESO' ? '+' : '-'}${formatMoney(m.monto)}
+                                            {m.tipo === 'INGRESO' ? '+' : '-'}{formatMoney(m.monto)}
                                         </td>
-                                        <td><small className="badge badge-outline">{m.motivo}</small></td>
+                                        <td><small className="badge badge-outline">{m.motivo_nombre || '-'}</small></td>
                                         <td className="text-muted text-xs">{m.descripcion}</td>
-                                        <td className="text-xs font-bold">${formatMoney(m.saldo_nuevo)}</td>
+                                        <td className="text-xs font-bold">{formatMoney(m.saldo_nuevo)}</td>
                                     </tr>
                                 ))
                             )}
@@ -387,7 +379,6 @@ export default function Fondos() {
                 </div>
             </div>
 
-            {/* Modal para Crear/Editar Cuenta */}
             {showAccountModal && (
                 <div className="modal-overlay">
                     <div className="modal" style={{ maxWidth: '500px' }}>
@@ -421,11 +412,6 @@ export default function Fondos() {
                                     <option value="DIGITAL">📱 Digital (MercadoPago, etc)</option>
                                     <option value="EXTERNA">⚡ Extraordinaria</option>
                                 </select>
-                                <small className="text-muted">
-                                    {accountForm.tipo === 'EXTERNA' 
-                                        ? 'Las cuentas extraordinarias se usan para pagos externos y no están disponibles en el POS.' 
-                                        : 'Seleccione el tipo de cuenta según corresponda.'}
-                                </small>
                             </div>
                             {!editingAccount && (
                                 <div className="form-group">
@@ -454,7 +440,6 @@ export default function Fondos() {
                 </div>
             )}
 
-            {/* Modal para Balancear Cuenta */}
             {showBalanceModal && balancingAccount && (
                 <div className="modal-overlay">
                     <div className="modal" style={{ maxWidth: '500px' }}>
@@ -464,8 +449,7 @@ export default function Fondos() {
                         </div>
                         <div className="card mb-md" style={{ background: 'var(--bg-tertiary)' }}>
                             <p><strong>Cuenta a balancear:</strong> {balancingAccount.nombre}</p>
-                            <p><strong>Saldo actual:</strong> <span className="text-danger">${formatMoney(balancingAccount.saldo_actual)}</span></p>
-                            <p className="text-muted text-sm">Al balancear, el saldo se transferirá a la cuenta destino seleccionada y esta cuenta quedará en $0.</p>
+                            <p><strong>Saldo actual:</strong> <span className="text-danger">{formatMoney(balancingAccount.saldo_actual)}</span></p>
                         </div>
                         <form onSubmit={handleBalance}>
                             <div className="form-group">
@@ -481,7 +465,7 @@ export default function Fondos() {
                                         .filter(c => c.id !== balancingAccount.id && c.activo && c.tipo !== 'EXTERNA')
                                         .map(c => (
                                             <option key={c.id} value={c.id}>
-                                                {c.nombre} (Saldo: ${formatMoney(c.saldo_actual)})
+                                                {c.nombre} (Saldo: {formatMoney(c.saldo_actual)})
                                             </option>
                                         ))}
                                 </select>

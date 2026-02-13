@@ -4,6 +4,11 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Constantes de motivos para fondos
+const FONDO_APERTURA_CAJA = 7;
+const FONDO_CIERRE_CAJA = 8;
+const FONDO_AJUSTE_CAJA = 9;
+
 // Get all sessions
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -57,7 +62,7 @@ router.get('/current', authenticateToken, async (req, res) => {
                     JOIN cuentas_pago cp ON fm.cuenta_id = cp.id
                     WHERE fm.sesion_caja_id = sc.id 
                       AND cp.es_caja_operativa = true
-                      AND fm.motivo NOT IN ('APERTURA_CAJA','CIERRE_CAJA')
+                      AND fm.motivo_id NOT IN (${FONDO_APERTURA_CAJA}, ${FONDO_CIERRE_CAJA})
                 ), 0) as saldo_cierre_esperado
              FROM sesiones_caja sc
              JOIN usuarios u ON sc.usuario_apertura_id = u.id
@@ -130,13 +135,13 @@ router.post('/open', authenticateToken, async (req, res) => {
 
             await client.query(
                 `INSERT INTO fondos_movimientos
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     cuentaFondo.id,
                     'EGRESO',
                     montoInicial,
-                    'APERTURA_CAJA',
+                    FONDO_APERTURA_CAJA,
                     result.rows[0].id,
                     result.rows[0].id,
                     saldoFondoAnterior,
@@ -148,13 +153,13 @@ router.post('/open', authenticateToken, async (req, res) => {
 
             await client.query(
                 `INSERT INTO fondos_movimientos
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     cuentaOperativa.id,
                     'INGRESO',
                     montoInicial,
-                    'APERTURA_CAJA',
+                    FONDO_APERTURA_CAJA,
                     result.rows[0].id,
                     result.rows[0].id,
                     saldoOperativaAnterior,
@@ -203,7 +208,7 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
                     FROM fondos_movimientos fm
                     WHERE fm.sesion_caja_id = sc.id 
                       AND fm.cuenta_id = $2
-                      AND fm.motivo NOT IN ('APERTURA_CAJA','CIERRE_CAJA')
+                      AND fm.motivo_id NOT IN (${FONDO_APERTURA_CAJA}, ${FONDO_CIERRE_CAJA})
                 ), 0) as final_esperado
              FROM sesiones_caja sc
              WHERE sc.id = $1 `,
@@ -231,13 +236,13 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
 
             await client.query(
                 `INSERT INTO fondos_movimientos
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     cuentaOperativaId,
                     tipoAjuste,
                     montoAjuste,
-                    'AJUSTE_CAJA',
+                    FONDO_AJUSTE_CAJA,
                     id,
                     id,
                     saldoCuentaAnterior,
@@ -279,13 +284,13 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
 
             await client.query(
                 `INSERT INTO fondos_movimientos
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     cuentaOperativaId,
                     'EGRESO',
                     montoTransferir,
-                    'CIERRE_CAJA',
+                    FONDO_CIERRE_CAJA,
                     id,
                     id,
                     saldoOperativaActual,
@@ -297,13 +302,13 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
 
             await client.query(
                 `INSERT INTO fondos_movimientos
-                 (cuenta_id, tipo, monto, motivo, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
                 [
                     cuentaFondoId,
                     'INGRESO',
                     montoTransferir,
-                    'CIERRE_CAJA',
+                    FONDO_CIERRE_CAJA,
                     id,
                     id,
                     saldoFondoAnterior,

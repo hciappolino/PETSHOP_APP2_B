@@ -27,6 +27,11 @@ import GestionEmpresas from './pages/GestionEmpresas';
 import InspeccionGranel from './pages/InspeccionGranel';
 import InitDB from './pages/InitDB';
 import Promociones from './pages/Promociones';
+import VentasListado from './pages/VentasListado';
+import ReporteVentas from './pages/ReporteVentas';
+import ReporteStockMinimo from './pages/ReporteStockMinimo';
+import ReporteClienteCC from './pages/ReporteClienteCC';
+import ReporteCajaDiaria from './pages/ReporteCajaDiaria';
 
 // Componente para manejar la redirección de la raíz
 function RootRedirect() {
@@ -212,6 +217,42 @@ function AppRoutes() {
             />
 
             <Route
+                path="/reportes/ventas"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <ReporteVentas />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/reportes/stock-minimo"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <ReporteStockMinimo />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/reportes/cliente-cc"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <ReporteClienteCC />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/reportes/caja-diaria"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <ReporteCajaDiaria />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
                 path="/movimientos-stock"
                 element={
                     <ProtectedRoute allowedRoles={['admin', 'gerente']}>
@@ -252,6 +293,15 @@ function AppRoutes() {
                 element={<InitDB />}
             />
             
+            <Route
+                path="/ventas"
+                element={
+                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                        <VentasListado />
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Redirección por defecto para cualquier ruta no encontrada */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

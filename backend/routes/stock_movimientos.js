@@ -4,36 +4,58 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Mapeo de motivos texto a IDs para ajustes manuales
+const MOTIVO_MAP = {
+    'AJUSTE': 3,
+    'APERTURA_BOLSA': 4,
+    'DEVOLUCION': 5
+};
+
+const MOTIVO_INVERSO_TIPO = {
+    3: 'ENTRADA',   // AJUSTE revertido
+    4: 'ENTRADA',   // APERTURA_BOLSA revertida
+    5: 'SALIDA'     // DEVOLUCION revertida
+};
+
 // Get stock movements
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        const { producto_id, fecha_desde, fecha_hasta } = req.query;
+        const { producto_id, fecha_desde, fecha_hasta, motivo } = req.query;
 
         let query = `
-            SELECT sm.*, p.nombre as producto_nombre, p.fabricante, p.marca, u.nombre as usuario_nombre 
+            SELECT sm.*, p.nombre as producto_nombre, p.fabricante, p.marca, 
+                   u.nombre as usuario_nombre, sm2.nombre as motivo_nombre
             FROM stock_movimientos sm
             JOIN productos p ON sm.producto_id = p.id
             JOIN usuarios u ON sm.usuario_id = u.id
-            WHERE 1=1
+            LEFT JOIN stock_motivos sm2 ON sm.motivo_id = sm2.id
+            WHERE sm.revertido = false
         `;
         const params = [];
         let paramCount = 1;
 
         if (producto_id) {
-            query += ` AND sm.producto_id = $${paramCount}`;
+            query += ` AND sm.producto_id = ${paramCount}`;
             params.push(producto_id);
             paramCount++;
         }
 
         if (fecha_desde) {
-            query += ` AND sm.created_at >= $${paramCount}`;
+            query += ` AND sm.created_at >= ${paramCount}`;
             params.push(fecha_desde);
             paramCount++;
         }
 
         if (fecha_hasta) {
-            query += ` AND sm.created_at <= $${paramCount}`;
+            query += ` AND sm.created_at <= ${paramCount}`;
             params.push(fecha_hasta);
+            paramCount++;
+        }
+
+        // Filtrar por código de motivo (numérico)
+        if (motivo) {
+            query += ` AND sm.motivo_id = ${paramCount}`;
+            params.push(parseInt(motivo));
             paramCount++;
         }
 
@@ -59,7 +81,7 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Faltan datos requeridos: producto_id, tipo, cantidad' });
         }
 
-        // DB schema expects 'ENTRADA' for incoming stock
+        // Validar tipo
         if (!['ENTRADA', 'SALIDA'].includes(tipo)) {
             return res.status(400).json({ error: "Tipo inválido. Debe ser 'ENTRADA' o 'SALIDA'" });
         }
@@ -83,12 +105,16 @@ router.post('/', authenticateToken, async (req, res) => {
 
         await client.query('UPDATE productos SET stock_actual = $1 WHERE id = $2', [stockNuevo, producto_id]);
 
+        // Obtener motivo_id
+        const motivoId = motivo ? MOTIVO_MAP[motivo] : 3; // Default AJUSTE
+        const motivoTexto = motivo || 'AJUSTE';
+
         const insertRes = await client.query(
             `INSERT INTO stock_movimientos
-             (producto_id, tipo, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo, usuario_id, notas)
+             (producto_id, tipo, cantidad, motivo_id, referencia_id, stock_anterior, stock_nuevo, usuario_id, notas)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
              RETURNING *`,
-            [producto_id, tipo, cantidadNum, motivo || null, referencia_id || null, stockAnterior, stockNuevo, req.user.id, notas || null]
+            [producto_id, tipo, cantidadNum, motivoId, referencia_id || null, stockAnterior, stockNuevo, req.user.id, notas || `[${motivoTexto}]`]
         );
 
         await client.query('COMMIT');

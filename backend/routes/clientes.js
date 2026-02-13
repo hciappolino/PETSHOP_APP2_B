@@ -4,6 +4,9 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Constante de motivo para DEPOSITO (pago de cliente)
+const FONDO_DEPOSITO = 4;
+
 // Get deudores (clients with saldo_cc > 0)
 router.get('/reportes/deudores', authenticateToken, async (req, res) => {
     try {
@@ -113,9 +116,9 @@ router.get('/:id/cuenta-corriente', authenticateToken, async (req, res) => {
         const paymentsResult = await pool.query(
             `SELECT fm.id, fm.created_at as fecha, fm.monto, 'PAGO' as tipo, fm.descripcion
              FROM fondos_movimientos fm
-             WHERE fm.referencia_id = $1 AND fm.tipo = 'INGRESO' AND fm.motivo = 'DEPOSITO'
+             WHERE fm.referencia_id = $1 AND fm.tipo = 'INGRESO' AND fm.motivo_id = $2
              ORDER BY fm.created_at DESC`,
-            [id]
+            [id, FONDO_DEPOSITO]
         );
 
         // Combine and sort by date
@@ -257,9 +260,9 @@ router.post('/:id/pagos', authenticateToken, async (req, res) => {
 
         // Insert fund movement (INGRESO)
         await clientConn.query(
-            `INSERT INTO fondos_movimientos (cuenta_id, tipo, monto, motivo, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+            `INSERT INTO fondos_movimientos (cuenta_id, tipo, monto, motivo_id, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [cuenta_pago_id, 'INGRESO', montoNum, 'DEPOSITO', id, saldoAnterior, saldoNuevo, userId, notas || referencia || `Pago cliente ${id}`]
+            [cuenta_pago_id, 'INGRESO', montoNum, FONDO_DEPOSITO, id, saldoAnterior, saldoNuevo, userId, notas || referencia || `Pago cliente ${id}`]
         );
 
         // Decrease client saldo_cc

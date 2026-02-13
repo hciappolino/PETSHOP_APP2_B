@@ -12,8 +12,10 @@ const REQUIRED_TABLES = {
     pagos_compra: ['id', 'factura_id', 'cuenta_pago_id', 'monto', 'fecha_pago', 'referencia', 'notas', 'usuario_id', 'created_at'],
     ventas: ['id', 'cliente_id', 'lista_precio_id', 'fecha', 'total', 'cuenta_pago_id', 'sesion_caja_id', 'usuario_id', 'tipo_venta'],
     venta_items: ['id', 'venta_id', 'producto_id', 'cantidad', 'precio_venta', 'es_granel', 'subtotal'],
-    stock_movimientos: ['id', 'producto_id', 'tipo', 'cantidad', 'motivo', 'referencia_id', 'stock_anterior', 'stock_nuevo', 'usuario_id', 'notas', 'created_at'],
-    fondos_movimientos: ['id', 'cuenta_id', 'tipo', 'monto', 'motivo', 'referencia_id', 'sesion_caja_id', 'saldo_anterior', 'saldo_nuevo', 'usuario_id', 'descripcion', 'created_at'],
+    stock_motivos: ['id', 'codigo', 'nombre', 'es_revertible', 'orden'],
+    fondos_motivos: ['id', 'codigo', 'nombre', 'es_revertible', 'orden'],
+    stock_movimientos: ['id', 'producto_id', 'tipo', 'cantidad', 'motivo_id', 'referencia_id', 'stock_anterior', 'stock_nuevo', 'usuario_id', 'notas', 'revertido', 'revertido_fecha', 'revertido_por', 'revertido_motivo', 'created_at'],
+    fondos_movimientos: ['id', 'cuenta_id', 'tipo', 'monto', 'motivo_id', 'referencia_id', 'sesion_caja_id', 'saldo_anterior', 'saldo_nuevo', 'usuario_id', 'descripcion', 'revertido', 'revertido_fecha', 'revertido_por', 'revertido_motivo', 'created_at'],
     listas_precios: ['id', 'nombre', 'descripcion', 'es_default', 'activo', 'created_at'],
     lista_articulo: ['id', 'lista_precio_id', 'producto_id', 'precio_venta_unidad', 'precio_venta_granel', 'created_at'],
     articulos_proveedor: ['id', 'producto_id', 'proveedor_id', 'codigo_proveedor', 'ultimo_costo', 'created_at']

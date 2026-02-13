@@ -4,6 +4,9 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Constante de motivo para AJUSTE
+const FONDO_AJUSTE = 6;
+
 // Get all payment accounts
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -76,13 +79,13 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
         if (parseFloat(saldo_inicial) > 0) {
             await client.query(
                 `INSERT INTO fondos_movimientos 
-                 (cuenta_id, tipo, monto, motivo, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 (cuenta_id, tipo, monto, motivo_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                 [
                     result.rows[0].id,
                     'INGRESO',
                     parseFloat(saldo_inicial),
-                    'AJUSTE',
+                    FONDO_AJUSTE,
                     0,
                     parseFloat(saldo_inicial),
                     req.user.id,
@@ -341,13 +344,13 @@ router.post('/:id/balancear', authenticateToken, authorizeRole('admin', 'gerente
         // Create movement for source
         await client.query(
             `INSERT INTO fondos_movimientos 
-             (cuenta_id, tipo, monto, motivo, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+             (cuenta_id, tipo, monto, motivo_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
                 id,
                 sourceTipo,
                 montoAbsoluto,
-                'AJUSTE',
+                FONDO_AJUSTE,
                 saldoATransferir,
                 saldoSourceNuevo,
                 req.user.id,
@@ -358,13 +361,13 @@ router.post('/:id/balancear', authenticateToken, authorizeRole('admin', 'gerente
         // Create movement for destination
         await client.query(
             `INSERT INTO fondos_movimientos 
-             (cuenta_id, tipo, monto, motivo, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+             (cuenta_id, tipo, monto, motivo_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
             [
                 cuenta_destino_id,
                 destTipo,
                 montoAbsoluto,
-                'AJUSTE',
+                FONDO_AJUSTE,
                 saldoDestinoAnterior,
                 saldoDestinoNuevo,
                 req.user.id,

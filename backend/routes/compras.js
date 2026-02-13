@@ -4,6 +4,10 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Constantes de motivos
+const MOTIVO_COMPRA = 2;  // stock_motivos.id para COMPRA
+const MOTIVO_FONDO_COMPRA = 2;  // fondos_motivos.id para COMPRA
+
 // Get all purchase invoices
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -145,9 +149,9 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 
                 // Create stock movement record
                 const movRes = await client.query(
-                    `INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo, referencia_id, stock_anterior, stock_nuevo, usuario_id) 
+                    `INSERT INTO stock_movimientos (producto_id, tipo, cantidad, motivo_id, referencia_id, stock_anterior, stock_nuevo, usuario_id) 
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                    [ producto_id, 'ENTRADA', cantidad, 'COMPRA', facturaId, stockAnterior, stockNuevo, req.user.id]
+                    [ producto_id, 'ENTRADA', cantidad, MOTIVO_COMPRA, facturaId, stockAnterior, stockNuevo, req.user.id]
                 );
                 console.log('Stock movement created for purchase:', movRes.rows[0]?.id || 'unknown');
             }
@@ -217,13 +221,13 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 
             await client.query(
                 `INSERT INTO fondos_movimientos 
-                 (cuenta_id, tipo, monto, motivo, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion) 
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                 [
                     cuentaId,
                     'EGRESO',
                     montoPago,
-                    'COMPRA',
+                    MOTIVO_FONDO_COMPRA,
                     facturaId,
                     saldoAnterior,
                     nuevoSaldo,
@@ -434,14 +438,14 @@ router.post('/:id/pagar', authenticateToken, authorizeRole('admin', 'gerente'), 
         // 6. Create fondos_movimiento record (EGRESO = payment)
         const movResult = await client.query(
             `INSERT INTO fondos_movimientos 
-             (cuenta_id, tipo, monto, motivo, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion) 
+             (cuenta_id, tipo, monto, motivo_id, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING *`,
             [
                 cuenta_pago_id,
                 'EGRESO',
                 monto,
-                'COMPRA',
+                MOTIVO_FONDO_COMPRA,
                 id,
                 saldoAnterior,
                 nuevoSaldo,
