@@ -8,7 +8,7 @@ export default function GestionEmpresas() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const { isAdmin } = useAuth();
+    const { hasPermission } = useAuth();
 
     // Form state
     const [formData, setFormData] = useState({
@@ -69,7 +69,7 @@ export default function GestionEmpresas() {
         }
     };
 
-    if (!isAdmin) {
+    if (!hasPermission('admin.empresas')) {
         return <div className="p-4 text-center">No tiene permisos para acceder a esta sección.</div>;
     }
 

@@ -31,8 +31,8 @@ export default function Productos() {
         stock_minimo: 5
     });
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('productos.editar');
 
     useEffect(() => {
         loadProductos();

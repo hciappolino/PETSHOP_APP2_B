@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -87,7 +87,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create purchase and update stock/costs
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('compras.crear'), async (req, res) => {
     const client = await pool.connect();
     try {
         const {
@@ -279,7 +279,7 @@ router.get('/cuentas/listar', authenticateToken, async (req, res) => {
 });
 
 // Create external account for diverse expenses (no contabilizada)
-router.post('/cuentas-externas/crear', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/cuentas-externas/crear', authenticateToken, authorizePermission('compras.gastos'), async (req, res) => {
     try {
         const { nombre, tipo, descripcion } = req.body;
 
@@ -330,7 +330,7 @@ router.get('/:id/pagos', authenticateToken, async (req, res) => {
 });
 
 // Register payment for a purchase (connects with fondos_movimientos)
-router.post('/:id/pagar', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/:id/pagar', authenticateToken, authorizePermission('compras.crear'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;

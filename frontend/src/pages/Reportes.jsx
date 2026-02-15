@@ -20,7 +20,7 @@ export default function Reportes() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [dateRange, setDateRange] = useState('ESTA_SEMANA');
 
-    const { isAdmin } = useAuth();
+    const { hasPermission } = useAuth();
 
     useEffect(() => {
         loadReportes();
@@ -76,10 +76,10 @@ export default function Reportes() {
             } else if (activeTab === 'stock') {
                 const res = await api.get('/reportes/stock-bajo');
                 setStockBajo(res.data);
-            } else if (activeTab === 'ganancias' && isAdmin) {
+            } else if (activeTab === 'ganancias' && hasPermission('reportes.ganancias')) {
                 const res = await api.get('/reportes/ganancias-estimadas');
                 setGanancias(res.data);
-            } else if (activeTab === 'gastos' && isAdmin) {
+            } else if (activeTab === 'gastos' && hasPermission('reportes.ventas')) {
                 const res = await api.get('/reportes/gastos-del-mes');
                 setGastosMes(res.data);
             }
@@ -88,11 +88,6 @@ export default function Reportes() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const getMaxVentas = () => {
-        if (ventasDiarias.length === 0) return 1;
-        return Math.max(...ventasDiarias.map(v => parseFloat(v.total_ventas)));
     };
 
     return (
@@ -146,7 +141,7 @@ export default function Reportes() {
                 >
                     ⚠️ Stock Bajo
                 </button>
-                {isAdmin && (
+                {hasPermission('reportes.ganancias') && (
                     <button
                         className={`btn btn-sm ${activeTab === 'ganancias' ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => setActiveTab('ganancias')}
@@ -154,7 +149,7 @@ export default function Reportes() {
                         💰 Ganancias
                     </button>
                 )}
-                {isAdmin && (
+                {hasPermission('reportes.ventas') && (
                     <button
                         className={`btn btn-sm ${activeTab === 'gastos' ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => setActiveTab('gastos')}
@@ -259,23 +254,35 @@ export default function Reportes() {
                             </div>
                             <div className="card">
                                 <h3>Historial de Ventas (7 días)</h3>
-                                <div className="flex items-end gap-md mt-xl" style={{ height: '300px', paddingBottom: '30px' }}>
-                                    {[...ventasDiarias].reverse().map((v, i) => (
-                                        <div key={i} className="flex-1 flex flex-col items-center gap-sm">
-                                            <div
-                                                className="bg-primary hover:bg-primary-dark transition-all rounded-t-md w-full"
-                                                style={{
-                                                    height: `${(parseFloat(v.total_ventas) / getMaxVentas() * 250)}px`,
-                                                    minHeight: '5px'
-                                                }}
-                                                title={`$${v.total_ventas}`}
-                                            ></div>
-                                            <span className="text-xs text-muted rotate-45 mt-sm whitespace-nowrap">
-                                                {new Date(v.fecha).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
-                                            </span>
-                                            <strong className="text-xs">{formatCurrency(v.total_ventas)}</strong>
-                                        </div>
-                                    ))}
+                                <div className="table-container mt-md">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Total Vendido</th>
+                                                <th>Artículos</th>
+                                                <th>Ticket Promedio</th>
+                                                <th>Contado</th>
+                                                <th>Cuenta Corriente</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {ventasDiarias.length > 0 ? (
+                                                ventasDiarias.map((v, i) => (
+                                                    <tr key={i}>
+                                                        <td>{new Date(v.fecha).toLocaleDateString()}</td>
+                                                        <td className="font-bold text-success">{formatCurrency(v.total_ventas)}</td>
+                                                        <td className="font-bold text-center">{parseInt(v.cantidad_articulos || 0, 10)}</td>
+                                                        <td>{formatCurrency(v.ticket_promedio)}</td>
+                                                        <td>{formatCurrency(v.total_contado)}</td>
+                                                        <td>{formatCurrency(v.total_cuenta_corriente)}</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr><td colSpan="6" className="text-center text-muted p-lg">Sin datos de ventas</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </>
@@ -333,7 +340,7 @@ export default function Reportes() {
                         </div>
                     )}
 
-                    {activeTab === 'ganancias' && isAdmin && (
+                    {activeTab === 'ganancias' && hasPermission('reportes.ganancias') && (
                         <div className="card">
                             <h3>Estimación de Ganancias</h3>
                             <div className="table-container">
@@ -363,7 +370,7 @@ export default function Reportes() {
                         </div>
                     )}
 
-                    {activeTab === 'gastos' && isAdmin && (
+                    {activeTab === 'gastos' && hasPermission('reportes.ventas') && (
                         <div className="card">
                             <h3>Gastos del Mes (Servicios / Insumos)</h3>
                             <div className="table-container">

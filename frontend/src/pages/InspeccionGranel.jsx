@@ -11,7 +11,7 @@ export default function InspeccionGranel() {
     const [filtroEstado, setFiltroEstado] = useState('todos'); // 'todos', 'abierta', 'cerrada'
     const [productos, setProductos] = useState([]);
     const [expandido, setExpandido] = useState(null); // ID del reporte expandido
-    const { isAdmin, isGerente } = useAuth();
+    const { hasPermission } = useAuth();
 
     useEffect(() => {
         loadReporte();

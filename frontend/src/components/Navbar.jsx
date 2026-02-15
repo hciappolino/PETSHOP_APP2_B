@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
 export const Navbar = () => {
-    const { user, logout, isAdmin, isGerente } = useAuth();
+    const { user, logout, hasPermission } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [activeDropdown, setActiveDropdown] = useState(null);
@@ -35,8 +35,6 @@ export const Navbar = () => {
 
     const isActive = (path) => location.pathname === path;
 
-    // Usamos las variables del contexto para mayor seguridad
-    const canSeeAll = isAdmin || isGerente;
 
     return (
         <>
@@ -74,7 +72,7 @@ export const Navbar = () => {
                             </span>
                             {activeDropdown === 'ventas' && (
                                 <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
-                                    {canSeeAll && (
+                                    {hasPermission('clientes.ver') && (
                                         <>
                                             <Link to="/clientes" className={isActive('/clientes') ? 'active' : ''}>👥 Clientes</Link>
                                             <Link to="/deudores" className={isActive('/deudores') ? 'active' : ''}>💳 Deudores</Link>
@@ -88,7 +86,7 @@ export const Navbar = () => {
                         </div>
 
                         {/* MODULO STOCK: Solo Admin/Gerente */}
-                        {canSeeAll && (
+                        {hasPermission('productos.ver') && (
                             <div className="nav-item-dropdown" onMouseEnter={() => setActiveDropdown('stock')}>
                                 <span className={`nav-link ${activeDropdown === 'stock' ? 'active' : ''}`}>
                                     📦 Stock ▾
@@ -105,7 +103,7 @@ export const Navbar = () => {
                         )}
 
                         {/* MODULO COMPRAS: Solo Admin/Gerente */}
-                        {canSeeAll && (
+                        {hasPermission('proveedores.ver') && (
                             <div className="nav-item-dropdown" onMouseEnter={() => setActiveDropdown('compras')}>
                                 <span className={`nav-link ${activeDropdown === 'compras' ? 'active' : ''}`}>
                                     📥 Compras ▾
@@ -129,9 +127,9 @@ export const Navbar = () => {
                             </span>
                             {activeDropdown === 'fondos' && (
                                 <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
-                                    {canSeeAll && <Link to="/fondos" className={isActive('/fondos') ? 'active' : ''}>💾 Cuentas</Link>}
-                                    {canSeeAll && <Link to="/movimientos-fondos" className={isActive('/movimientos-fondos') ? 'active' : ''}>🔄 Movimientos</Link>}
-                                    {canSeeAll && <Link to="/fondos/nuevo" className={isActive('/fondos/nuevo') ? 'active' : ''}>📝 Nuevo Comprobante</Link>}
+                                    {hasPermission('fondos.ver') && <Link to="/fondos" className={isActive('/fondos') ? 'active' : ''}>💾 Cuentas</Link>}
+                                    {hasPermission('fondos.ver') && <Link to="/movimientos-fondos" className={isActive('/movimientos-fondos') ? 'active' : ''}>🔄 Movimientos</Link>}
+                                    {hasPermission('fondos.mover') && <Link to="/fondos/nuevo" className={isActive('/fondos/nuevo') ? 'active' : ''}>📝 Nuevo Comprobante</Link>}
                                     <Link to="/caja" className={isActive('/caja') ? 'active' : ''}>🏧 Caja</Link>
                                     <Link to="/reportes/caja-diaria" className={isActive('/reportes/caja-diaria') ? 'active' : ''}>📊 Reporte Caja</Link>
                                 </div>
@@ -139,7 +137,7 @@ export const Navbar = () => {
                         </div>
 
                         {/* REPORTES: Solo Admin/Gerente */}
-                        {canSeeAll && (
+                        {hasPermission('reportes.ventas') && (
                             <div className="nav-item-dropdown" onMouseEnter={() => setActiveDropdown('reportes')}>
                                 <span className={`nav-link ${activeDropdown === 'reportes' ? 'active' : ''}`}>
                                     📊 Reportes ▾
@@ -148,8 +146,33 @@ export const Navbar = () => {
                                     <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
                                         <Link to="/reportes" className={isActive('/reportes') ? 'active' : ''}>📊 Dashboard</Link>
                                         <Link to="/reportes/ventas" className={isActive('/reportes/ventas') ? 'active' : ''}>💰 Ventas</Link>
+                                        <Link to="/reportes/ventas-mensuales" className={isActive('/reportes/ventas-mensuales') ? 'active' : ''}>Ventas por Mes</Link>
                                         <Link to="/reportes/stock-minimo" className={isActive('/reportes/stock-minimo') ? 'active' : ''}>📉 Stock Bajo</Link>
                                         <Link to="/reportes/cliente-cc" className={isActive('/reportes/cliente-cc') ? 'active' : ''}>💳 Estado de Cuenta</Link>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ⚙️ ADMINISTRACIÓN: Only users with admin permissions */}
+                        {(hasPermission('admin.usuarios') || 
+                          hasPermission('admin.roles') || 
+                          hasPermission('admin.backups') || 
+                          hasPermission('admin.initdb')) && (
+                            <div className="nav-item-dropdown" onMouseEnter={() => setActiveDropdown('admin')}>
+                                <span className={`nav-link ${activeDropdown === 'admin' ? 'active' : ''}`}>
+                                    ⚙️ Admin ▾
+                                </span>
+                                {activeDropdown === 'admin' && (
+                                    <div className="dropdown-menu" onClick={() => setActiveDropdown(null)}>
+                                        {hasPermission('admin.usuarios') && 
+                                            <Link to="/admin/usuarios">👤 Usuarios</Link>}
+                                        {hasPermission('admin.roles') && 
+                                            <Link to="/admin/roles">🔐 Roles y Permisos</Link>}
+                                        {hasPermission('admin.backups') && 
+                                            <Link to="/admin/backups">💾 Backups</Link>}
+                                        {hasPermission('admin.initdb') && 
+                                            <Link to="/admin/base-datos">🗄️ Base de Datos</Link>}
                                     </div>
                                 )}
                             </div>
@@ -159,7 +182,7 @@ export const Navbar = () => {
                     <div className="navbar-user">
                         <div className="flex flex-col items-end mr-md">
                             <span className="user-name">{user?.nombre}</span>
-                            <span className="user-role-badge">{user?.rol}</span>
+                            <span className="user-role-badge">{user?.rol_nombre || user?.rol_id}</span>
                         </div>
                         <button onClick={handleLogout} className="btn btn-sm btn-outline">
                             Salir
@@ -203,7 +226,7 @@ export const Navbar = () => {
                         </div>
                         {mobileOpenDropdowns['ventas'] && (
                             <div className="mobile-dropdown-menu">
-                                {canSeeAll && (
+                                {hasPermission('clientes.ver') && (
                                     <>
                                         <Link to="/clientes" onClick={closeMobileMenu}>👥 Clientes</Link>
                                         <Link to="/deudores" onClick={closeMobileMenu}>💳 Deudores</Link>
@@ -217,7 +240,7 @@ export const Navbar = () => {
                     </div>
 
                     {/* Stock dropdown - Admin/Gerente only */}
-                    {canSeeAll && (
+                    {hasPermission('productos.ver') && (
                         <div className={`mobile-dropdown ${mobileOpenDropdowns['stock'] ? 'open' : ''}`}>
                             <div className="mobile-dropdown-trigger" onClick={() => toggleMobileDropdown('stock')}>
                                 <span>📦 Stock</span>
@@ -235,7 +258,7 @@ export const Navbar = () => {
                     )}
 
                     {/* Compras dropdown - Admin/Gerente only */}
-                    {canSeeAll && (
+                    {hasPermission('proveedores.ver') && (
                         <div className={`mobile-dropdown ${mobileOpenDropdowns['compras'] ? 'open' : ''}`}>
                             <div className="mobile-dropdown-trigger" onClick={() => toggleMobileDropdown('compras')}>
                                 <span>📥 Compras</span>
@@ -261,9 +284,9 @@ export const Navbar = () => {
                         </div>
                         {mobileOpenDropdowns['fondos'] && (
                             <div className="mobile-dropdown-menu">
-                                {canSeeAll && <Link to="/fondos" onClick={closeMobileMenu}>💾 Cuentas</Link>}
-                                {canSeeAll && <Link to="/movimientos-fondos" onClick={closeMobileMenu}>🔄 Movimientos</Link>}
-                                {canSeeAll && <Link to="/fondos/nuevo" onClick={closeMobileMenu}>📝 Nuevo Comprobante</Link>}
+                                {hasPermission('fondos.ver') && <Link to="/fondos" onClick={closeMobileMenu}>💾 Cuentas</Link>}
+                                {hasPermission('fondos.ver') && <Link to="/movimientos-fondos" onClick={closeMobileMenu}>🔄 Movimientos</Link>}
+                                {hasPermission('fondos.mover') && <Link to="/fondos/nuevo" onClick={closeMobileMenu}>📝 Nuevo Comprobante</Link>}
                                 <Link to="/caja" onClick={closeMobileMenu}>🏧 Caja</Link>
                                 <Link to="/reportes/caja-diaria" onClick={closeMobileMenu}>📊 Reporte Caja</Link>
                             </div>
@@ -271,7 +294,7 @@ export const Navbar = () => {
                     </div>
 
                     {/* Reportes - Admin/Gerente only */}
-                    {canSeeAll && (
+                    {hasPermission('reportes.ventas') && (
                         <div className={`mobile-dropdown ${mobileOpenDropdowns['reportes'] ? 'open' : ''}`}>
                             <div className="mobile-dropdown-trigger" onClick={() => toggleMobileDropdown('reportes')}>
                                 <span>📊 Reportes</span>
@@ -281,8 +304,38 @@ export const Navbar = () => {
                                 <div className="mobile-dropdown-menu">
                                     <Link to="/reportes" onClick={closeMobileMenu}>📊 Dashboard</Link>
                                     <Link to="/reportes/ventas" onClick={closeMobileMenu}>💰 Ventas</Link>
+                                    <Link to="/reportes/ventas-mensuales" onClick={closeMobileMenu}>Ventas por Mes</Link>
                                     <Link to="/reportes/stock-minimo" onClick={closeMobileMenu}>📉 Stock Bajo</Link>
                                     <Link to="/reportes/cliente-cc" onClick={closeMobileMenu}>💳 Estado de Cuenta</Link>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mobile Admin - Only users with admin permissions */}
+                    {(hasPermission('admin.usuarios') || 
+                      hasPermission('admin.roles') || 
+                      hasPermission('admin.backups') || 
+                      hasPermission('admin.initdb')) && (
+                        <div className={`mobile-dropdown ${mobileOpenDropdowns['admin'] ? 'open' : ''}`}>
+                            <div 
+                                className="mobile-dropdown-header"
+                                onClick={() => toggleMobileDropdown('admin')}
+                            >
+                                <span className="nav-icon">⚙️</span>
+                                <span>Administración</span>
+                                <span className="mobile-dropdown-arrow">▶</span>
+                            </div>
+                            {mobileOpenDropdowns['admin'] && (
+                                <div className="mobile-dropdown-menu">
+                                    {hasPermission('admin.usuarios') && 
+                                        <Link to="/admin/usuarios" onClick={closeMobileMenu}>👤 Usuarios</Link>}
+                                    {hasPermission('admin.roles') && 
+                                        <Link to="/admin/roles" onClick={closeMobileMenu}>🔐 Roles y Permisos</Link>}
+                                    {hasPermission('admin.backups') && 
+                                        <Link to="/admin/backups" onClick={closeMobileMenu}>💾 Backups</Link>}
+                                    {hasPermission('admin.initdb') && 
+                                        <Link to="/admin/base-datos" onClick={closeMobileMenu}>🗄️ Base de Datos</Link>}
                                 </div>
                             )}
                         </div>
@@ -292,7 +345,7 @@ export const Navbar = () => {
                     <div className="mobile-user-info">
                         <div className="flex flex-col">
                             <span className="user-name">{user?.nombre}</span>
-                            <span className="user-role-badge">{user?.rol}</span>
+                            <span className="user-role-badge">{user?.rol_nombre || user?.rol_id}</span>
                         </div>
                         <button onClick={handleLogout} className="btn btn-primary w-full mt-md" style={{ marginTop: 'var(--spacing-md)' }}>
                             Salir

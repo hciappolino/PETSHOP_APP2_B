@@ -26,8 +26,8 @@ export default function Gastos() {
     const [referenciaPago, setReferenciaPago] = useState('');
     const [notasPago, setNotasPago] = useState('');
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('compras.gastos');
 
     useEffect(() => {
         loadInitialData();

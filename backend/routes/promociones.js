@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -110,7 +110,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create promotion
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('promociones.crear'), async (req, res) => {
     try {
         const {
             nombre,
@@ -151,7 +151,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 });
 
 // Update promotion
-router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizePermission('promociones.editar'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -207,7 +207,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (
 });
 
 // Cancel/Deactivate promotion
-router.put('/:id/cancelar', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.put('/:id/cancelar', authenticateToken, authorizePermission('promociones.editar'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -227,7 +227,7 @@ router.put('/:id/cancelar', authenticateToken, authorizeRole('admin', 'gerente')
 });
 
 // Delete promotion
-router.delete('/:id', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizePermission('promociones.editar'), async (req, res) => {
     try {
         const { id } = req.params;
 

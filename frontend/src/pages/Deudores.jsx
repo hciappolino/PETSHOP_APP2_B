@@ -35,8 +35,8 @@ export default function Deudores() {
 
     const debouncedSearch = useDebounce(search, 300);
     const navigate = useNavigate();
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('clientes.editar');
 
     const totalDeuda = useMemo(() => {
         return deudores.reduce((sum, d) => sum + parseFloat(d.saldo_cc || 0), 0);

@@ -33,8 +33,8 @@ export default function Promociones() {
     const [productos, setProductos] = useState([]);
     const [categorias, setCategorias] = useState([]);
     
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('promociones.editar');
 
     useEffect(() => {
         loadPromociones();

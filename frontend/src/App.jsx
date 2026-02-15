@@ -29,9 +29,16 @@ import InitDB from './pages/InitDB';
 import Promociones from './pages/Promociones';
 import VentasListado from './pages/VentasListado';
 import ReporteVentas from './pages/ReporteVentas';
+import ReporteVentasMensuales from './pages/ReporteVentasMensuales';
 import ReporteStockMinimo from './pages/ReporteStockMinimo';
 import ReporteClienteCC from './pages/ReporteClienteCC';
 import ReporteCajaDiaria from './pages/ReporteCajaDiaria';
+
+// Admin Pages (to be created in Phase 9)
+import AdminUsuarios from './pages/AdminUsuarios';
+import AdminRoles from './pages/AdminRoles';
+import AdminBackups from './pages/AdminBackups';
+import AdminBaseDatos from './pages/AdminBaseDatos';
 
 // Componente para manejar la redirección de la raíz
 function RootRedirect() {
@@ -74,7 +81,7 @@ function AppRoutes() {
             <Route
                 path="/empresas"
                 element={
-                    <ProtectedRoute allowedRoles={['admin']}>
+                    <ProtectedRoute requiredPermission="admin.empresas">
                         <GestionEmpresas />
                     </ProtectedRoute>
                 }
@@ -83,7 +90,7 @@ function AppRoutes() {
             <Route
                 path="/productos"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="productos.ver">
                         <Productos />
                     </ProtectedRoute>
                 }
@@ -92,7 +99,7 @@ function AppRoutes() {
             <Route
                 path="/clientes"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="clientes.ver">
                         <Clientes />
                     </ProtectedRoute>
                 }
@@ -101,7 +108,7 @@ function AppRoutes() {
             <Route
                 path="/deudores"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="clientes.cc">
                         <Deudores />
                     </ProtectedRoute>
                 }
@@ -110,7 +117,7 @@ function AppRoutes() {
             <Route
                 path="/proveedores"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="proveedores.ver">
                         <Proveedores />
                     </ProtectedRoute>
                 }
@@ -119,7 +126,7 @@ function AppRoutes() {
             <Route
                 path="/compras"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="compras.ver">
                         <Compras />
                     </ProtectedRoute>
                 }
@@ -128,7 +135,7 @@ function AppRoutes() {
             <Route
                 path="/compras/listado"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="compras.ver">
                         <ComprasListado />
                     </ProtectedRoute>
                 }
@@ -137,7 +144,7 @@ function AppRoutes() {
             <Route
                 path="/compras/por-producto"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="compras.ver">
                         <ComprasPorProducto />
                     </ProtectedRoute>
                 }
@@ -146,7 +153,7 @@ function AppRoutes() {
             <Route
                 path="/compras/gastos"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="compras.gastos">
                         <Gastos />
                     </ProtectedRoute>
                 }
@@ -174,7 +181,7 @@ function AppRoutes() {
             <Route
                 path="/fondos"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="fondos.ver">
                         <Fondos />
                     </ProtectedRoute>
                 }
@@ -183,7 +190,7 @@ function AppRoutes() {
             <Route
                 path="/fondos/nuevo"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="fondos.mover">
                         <FondosNuevo />
                     </ProtectedRoute>
                 }
@@ -192,7 +199,7 @@ function AppRoutes() {
             <Route
                 path="/precios"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="precios.ver">
                         <Precios />
                     </ProtectedRoute>
                 }
@@ -201,7 +208,7 @@ function AppRoutes() {
             <Route
                 path="/promociones"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="promociones.ver">
                         <Promociones />
                     </ProtectedRoute>
                 }
@@ -210,7 +217,7 @@ function AppRoutes() {
             <Route
                 path="/reportes"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="reportes.ventas">
                         <Reportes />
                     </ProtectedRoute>
                 }
@@ -219,8 +226,17 @@ function AppRoutes() {
             <Route
                 path="/reportes/ventas"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="reportes.ventas">
                         <ReporteVentas />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/reportes/ventas-mensuales"
+                element={
+                    <ProtectedRoute requiredPermission="reportes.ventas">
+                        <ReporteVentasMensuales />
                     </ProtectedRoute>
                 }
             />
@@ -228,7 +244,7 @@ function AppRoutes() {
             <Route
                 path="/reportes/stock-minimo"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="reportes.stock">
                         <ReporteStockMinimo />
                     </ProtectedRoute>
                 }
@@ -237,7 +253,7 @@ function AppRoutes() {
             <Route
                 path="/reportes/cliente-cc"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="clientes.cc">
                         <ReporteClienteCC />
                     </ProtectedRoute>
                 }
@@ -246,7 +262,7 @@ function AppRoutes() {
             <Route
                 path="/reportes/caja-diaria"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="caja.reportes">
                         <ReporteCajaDiaria />
                     </ProtectedRoute>
                 }
@@ -255,7 +271,7 @@ function AppRoutes() {
             <Route
                 path="/movimientos-stock"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="stock.ver">
                         <MovimientosStock />
                     </ProtectedRoute>
                 }
@@ -264,7 +280,7 @@ function AppRoutes() {
             <Route
                 path="/movimientos-fondos"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="fondos.ver">
                         <MovimientosFondos />
                     </ProtectedRoute>
                 }
@@ -273,7 +289,7 @@ function AppRoutes() {
             <Route
                 path="/productos/ajuste"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="stock.ajustar">
                         <StockAjuste />
                     </ProtectedRoute>
                 }
@@ -282,22 +298,64 @@ function AppRoutes() {
             <Route
                 path="/inspeccion-granel"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="stock.granel">
                         <InspeccionGranel />
                     </ProtectedRoute>
                 }
             />
 
+            {/* Legacy route - now redirects to admin base-datos */}
             <Route
                 path="/init-db"
-                element={<InitDB />}
+                element={
+                    <ProtectedRoute requiredPermission="admin.initdb">
+                        <InitDB />
+                    </ProtectedRoute>
+                }
             />
             
             <Route
                 path="/ventas"
                 element={
-                    <ProtectedRoute allowedRoles={['admin', 'gerente']}>
+                    <ProtectedRoute requiredPermission="ventas.ver">
                         <VentasListado />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* ADMIN ROUTES - require admin.usuarios permission */}
+            <Route
+                path="/admin/usuarios"
+                element={
+                    <ProtectedRoute requiredPermission="admin.usuarios">
+                        <AdminUsuarios />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/admin/roles"
+                element={
+                    <ProtectedRoute requiredPermission="admin.roles">
+                        <AdminRoles />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/admin/backups"
+                element={
+                    <ProtectedRoute requiredPermission="admin.backups">
+                        <AdminBackups />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/admin/base-datos"
+                element={
+                    <ProtectedRoute requiredPermission="admin.initdb">
+                        <AdminBaseDatos />
                     </ProtectedRoute>
                 }
             />

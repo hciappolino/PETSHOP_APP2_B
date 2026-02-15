@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create price list
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('precios.editar'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { nombre, descripcion, margen_sugerido, es_default } = req.body;
@@ -64,7 +64,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 });
 
 // Set default price list
-router.post('/:id/set-default', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/:id/set-default', authenticateToken, authorizePermission('precios.editar'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
@@ -93,7 +93,7 @@ router.post('/:id/set-default', authenticateToken, authorizeRole('admin', 'geren
 });
 
 // Update items in a price list
-router.post('/:id/items', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/:id/items', authenticateToken, authorizePermission('precios.editar'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;

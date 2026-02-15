@@ -21,9 +21,132 @@ DROP TABLE IF EXISTS proveedores CASCADE;
 DROP TABLE IF EXISTS sesiones_caja CASCADE;
 DROP TABLE IF EXISTS cuentas_pago CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS rol_permisos CASCADE;
+DROP TABLE IF EXISTS permisos CASCADE;
+DROP TABLE IF EXISTS roles CASCADE;
 
 -- ============================================
--- 1. USERS
+-- 1. ROLES AND PERMISSIONS
+-- ============================================
+
+-- Roles table
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    descripcion TEXT,
+    es_sistema BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Permissions table
+CREATE TABLE permisos (
+    id SERIAL PRIMARY KEY,
+    codigo VARCHAR(50) NOT NULL UNIQUE,
+    modulo VARCHAR(50) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    orden INTEGER DEFAULT 0
+);
+
+-- Role-Permission junction table
+CREATE TABLE rol_permisos (
+    rol_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permiso_id INTEGER NOT NULL REFERENCES permisos(id) ON DELETE CASCADE,
+    PRIMARY KEY (rol_id, permiso_id)
+);
+
+-- Populate default roles
+INSERT INTO roles (id, nombre, descripcion, es_sistema) VALUES
+(1, 'admin', 'Administrador del sistema con acceso completo', true),
+(2, 'vendedor', 'Vendedor con acceso al POS y caja', true);
+
+-- Reset sequence to continue from 3
+SELECT setval('roles_id_seq', 2, true);
+
+-- Populate all 35 permissions
+INSERT INTO permisos (codigo, modulo, nombre, descripcion, orden) VALUES
+-- POS module
+('pos.ver', 'pos', 'Ver punto de venta', 'Acceder al punto de venta', 10),
+('pos.vender', 'pos', 'Realizar ventas', 'Crear ventas desde el POS', 11),
+('pos.cancelar', 'pos', 'Cancelar ventas', 'Cancelar ventas realizadas', 12),
+
+-- Caja module
+('caja.operar', 'caja', 'Operar caja', 'Abrir y cerrar sesiones de caja', 20),
+('caja.reportes', 'caja', 'Reportes de caja', 'Ver reportes de caja diaria', 21),
+
+-- Productos module
+('productos.ver', 'productos', 'Ver productos', 'Ver listado de productos', 30),
+('productos.crear', 'productos', 'Crear productos', 'Crear nuevos productos', 31),
+('productos.editar', 'productos', 'Editar productos', 'Modificar productos existentes', 32),
+('productos.eliminar', 'productos', 'Eliminar productos', 'Eliminar productos del sistema', 33),
+
+-- Stock module
+('stock.ver', 'stock', 'Ver movimientos de stock', 'Ver historial de movimientos', 40),
+('stock.ajustar', 'stock', 'Ajustar stock', 'Realizar ajustes manuales de stock', 41),
+('stock.granel', 'stock', 'Inspección granel', 'Inspeccionar y abrir bolsas de granel', 42),
+
+-- Precios module
+('precios.ver', 'precios', 'Ver precios', 'Ver listas de precios', 50),
+('precios.editar', 'precios', 'Editar precios', 'Modificar precios de productos', 51),
+
+-- Promociones module
+('promociones.ver', 'promociones', 'Ver promociones', 'Ver promociones activas', 60),
+('promociones.crear', 'promociones', 'Crear promociones', 'Crear nuevas promociones', 61),
+('promociones.editar', 'promociones', 'Editar promociones', 'Modificar o cancelar promociones', 62),
+
+-- Clientes module
+('clientes.ver', 'clientes', 'Ver clientes', 'Ver listado de clientes', 70),
+('clientes.crear', 'clientes', 'Crear clientes', 'Crear nuevos clientes', 71),
+('clientes.editar', 'clientes', 'Editar clientes', 'Modificar datos de clientes', 72),
+('clientes.eliminar', 'clientes', 'Eliminar clientes', 'Eliminar clientes del sistema', 73),
+('clientes.cc', 'clientes', 'Cuenta corriente', 'Ver deudores y cuenta corriente', 74),
+
+-- Proveedores module
+('proveedores.ver', 'proveedores', 'Ver proveedores', 'Ver listado de proveedores', 80),
+('proveedores.crear', 'proveedores', 'Crear proveedores', 'Crear nuevos proveedores', 81),
+('proveedores.editar', 'proveedores', 'Editar proveedores', 'Modificar datos de proveedores', 82),
+
+-- Compras module
+('compras.ver', 'compras', 'Ver compras', 'Ver listado de compras', 90),
+('compras.crear', 'compras', 'Registrar compras', 'Registrar compras a proveedores', 91),
+('compras.gastos', 'compras', 'Registrar gastos', 'Registrar gastos y servicios', 92),
+
+-- Fondos module
+('fondos.ver', 'fondos', 'Ver fondos', 'Ver cuentas y movimientos de fondos', 100),
+('fondos.mover', 'fondos', 'Mover fondos', 'Transferir entre cuentas', 101),
+('fondos.cuentas', 'fondos', 'Administrar cuentas', 'Crear y editar cuentas de pago', 102),
+
+-- Reportes module
+('reportes.ventas', 'reportes', 'Reportes de ventas', 'Ver reportes de ventas', 110),
+('reportes.stock', 'reportes', 'Reportes de stock', 'Ver reportes de stock mínimo', 111),
+('reportes.ganancias', 'reportes', 'Reportes de ganancias', 'Ver reportes de ganancias estimadas', 112),
+
+-- Admin module
+('admin.usuarios', 'admin', 'Gestionar usuarios', 'Crear, editar y eliminar usuarios', 120),
+('admin.roles', 'admin', 'Gestionar roles', 'Crear y editar roles y permisos', 121),
+('admin.backups', 'admin', 'Gestionar backups', 'Crear y restaurar backups', 122),
+('admin.initdb', 'admin', 'Base de datos', 'Inicializar o reiniciar base de datos', 123),
+('admin.empresas', 'admin', 'Gestionar empresas', 'Administrar empresas del sistema', 124);
+
+-- Assign all permissions to admin role
+INSERT INTO rol_permisos (rol_id, permiso_id)
+SELECT 1, id FROM permisos;
+
+-- Assign POS + Caja permissions to vendedor role
+INSERT INTO rol_permisos (rol_id, permiso_id)
+SELECT 2, id FROM permisos WHERE codigo IN (
+    'pos.ver',
+    'pos.vender',
+    'caja.operar',
+    'caja.reportes'
+);
+
+-- Create indexes for permissions system
+CREATE INDEX idx_permisos_modulo ON permisos(modulo);
+CREATE INDEX idx_permisos_codigo ON permisos(codigo);
+
+-- ============================================
+-- 2. USERS
 -- ============================================
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
@@ -31,15 +154,16 @@ CREATE TABLE usuarios (
     password_hash VARCHAR(255) NOT NULL,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100),
-    rol VARCHAR(20) NOT NULL DEFAULT 'vendedor' CHECK (rol IN ('admin', 'vendedor', 'gerente')),
+    rol_id INTEGER NOT NULL DEFAULT 2 REFERENCES roles(id),
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_usuarios_username ON usuarios(username);
+CREATE INDEX idx_usuarios_rol_id ON usuarios(rol_id);
 
 -- ============================================
--- 2. BUSINESS ENTITIES (SIN empresa_id)
+-- 3. BUSINESS ENTITIES (SIN empresa_id)
 -- ============================================
 
 CREATE TABLE proveedores (
@@ -285,7 +409,7 @@ CREATE INDEX idx_fondos_movimientos_referencia ON fondos_movimientos(referencia_
 CREATE INDEX idx_fondos_movimientos_revertido ON fondos_movimientos(revertido, created_at DESC) WHERE revertido = FALSE;
 
 -- ============================================
--- 3. TRIGGERS
+-- 4. TRIGGERS
 -- ============================================
 
 CREATE OR REPLACE FUNCTION update_timestamp()
@@ -323,7 +447,7 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_venta_total AFTER INSERT OR UPDATE OR DELETE ON venta_items FOR EACH ROW EXECUTE FUNCTION update_venta_total();
 
 -- ============================================
--- 4. PROMOTIONS TABLES
+-- 5. PROMOTIONS TABLES
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS promociones (
@@ -373,7 +497,7 @@ CREATE INDEX idx_promocion_usos_promocion_id ON promocion_usos(promocion_id);
 CREATE TRIGGER trigger_update_promociones_timestamp BEFORE UPDATE ON promociones FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 -- ============================================
--- 5. PREVENTION OF DELETION
+-- 6. PREVENTION OF DELETION
 -- ============================================
 
 CREATE OR REPLACE FUNCTION prevent_deletion_with_refs()

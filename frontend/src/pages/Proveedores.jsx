@@ -29,8 +29,8 @@ export default function Proveedores() {
         direccion: ''
     });
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('proveedores.editar');
 
     useEffect(() => {
         loadProveedores();

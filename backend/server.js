@@ -23,6 +23,8 @@ import debugRoutes from './routes/debug.js';
 import initRoutes from './routes/init.js';
 import usuariosRoutes from './routes/usuarios.js';
 import promocionesRoutes from './routes/promociones.js';
+import backupsRoutes from './routes/backups.js';
+import rolesRoutes from './routes/roles.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -151,6 +153,8 @@ app.use('/api/reportes', reportesRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/init', initRoutes);
 app.use('/api/promociones', promocionesRoutes);
+app.use('/api/backups', backupsRoutes);
+app.use('/api/roles', rolesRoutes);
 
 // Serve static files from frontend build
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
@@ -362,8 +366,7 @@ async function fixPromocionesView() {
                     pr.nombre as producto_nombre,
                     lp.nombre as categoria_nombre,
                     pr.marca as marca_nombre,
-                    pr.fabricante as fabricante_nombre,
-                    p.entidad_nombre as entidad_nombre
+                    pr.fabricante as fabricante_nombre
                 FROM promociones p
                 LEFT JOIN productos pr ON p.ambito_aplicacion = 'producto' AND p.entidad_id = pr.id
                 LEFT JOIN listas_precios lp ON p.ambito_aplicacion = 'categoria' AND p.entidad_id = lp.id

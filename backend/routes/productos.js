@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 import XLSX from 'xlsx';
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
@@ -97,7 +97,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create product
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('productos.crear'), async (req, res) => {
     try {
         const {
             nombre, codigo, tipo_presentacion, factor_conversion, stock_minimo,
@@ -134,7 +134,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 });
 
 // Update product
-router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizePermission('productos.editar'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -307,7 +307,7 @@ router.post('/:id/abrir-bolsa', authenticateToken, async (req, res) => {
 });
 
 // Delete product
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizePermission('productos.eliminar'), async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query(
@@ -334,7 +334,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
 
 
 // Endpoint de importación
-router.post('/importar-excel', authenticateToken, authorizeRole('admin', 'gerente'), upload.single('archivo'), async (req, res) => {
+router.post('/importar-excel', authenticateToken, authorizePermission('productos.crear'), upload.single('archivo'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
 
     const client = await pool.connect();

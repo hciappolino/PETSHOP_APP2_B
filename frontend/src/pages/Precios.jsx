@@ -12,10 +12,13 @@ export default function Precios() {
     const [success, setSuccess] = useState(null);
     const [showNewListModal, setShowNewListModal] = useState(false);
     const [newListData, setNewListData] = useState({ nombre: '', descripcion: '', margen_sugerido: 30, es_default: false });
-    const [editMode, setEditMode] = useState(null); // 'precios' | 'margenes' | null
+    const [editingRows, setEditingRows] = useState({});
+    const [savingRows, setSavingRows] = useState({});
+    const [viewMode, setViewMode] = useState('unidad'); // 'unidad' | 'bolsa'
+    const [searchQuery, setSearchQuery] = useState('');
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('precios.editar');
 
     useEffect(() => {
         loadListas();
@@ -38,7 +41,9 @@ export default function Precios() {
 
     const handleSelectLista = async (lista) => {
         setSelectedLista(lista);
-        setEditMode(null); // Resetear modo de edición al cambiar lista
+        setEditingRows({});
+        setSavingRows({});
+        setSearchQuery('');
         setLoadingPrecios(true);
         try {
             const response = await api.get(`/precios/lista/${lista.id}`);
@@ -108,6 +113,65 @@ export default function Precios() {
         return Math.round(c * (1 + m / 100));
     };
 
+    const removeRowDraft = (productoId) => {
+        setEditingRows(prev => {
+            const next = { ...prev };
+            delete next[productoId];
+            return next;
+        });
+    };
+
+    const startEditUnidad = (p, margenCalc) => {
+        setEditingRows(prev => ({
+            ...prev,
+            [p.id]: {
+                precio_venta_unidad: Math.round(parseFloat(p.precio_venta_unidad) || 0),
+                margen_unidad: Math.round(margenCalc)
+            }
+        }));
+    };
+
+    const startEditBolsa = (p, margenBolsaCalc, margenKiloCalc) => {
+        setEditingRows(prev => ({
+            ...prev,
+            [p.id]: {
+                precio_venta_unidad: Math.round(parseFloat(p.precio_venta_unidad) || 0),
+                precio_venta_granel: Math.round(parseFloat(p.precio_venta_granel) || 0),
+                margen_bolsa: Math.round(margenBolsaCalc),
+                margen_kilo: Math.round(margenKiloCalc)
+            }
+        }));
+    };
+
+    const confirmEditUnidad = async (productoId) => {
+        const draft = editingRows[productoId];
+        if (!draft) return;
+        setSavingRows(prev => ({ ...prev, [productoId]: true }));
+        try {
+            await updatePrice(productoId, { precio_venta_unidad: draft.precio_venta_unidad });
+            removeRowDraft(productoId);
+            setSuccess('Precio actualizado');
+        } finally {
+            setSavingRows(prev => ({ ...prev, [productoId]: false }));
+        }
+    };
+
+    const confirmEditBolsa = async (productoId) => {
+        const draft = editingRows[productoId];
+        if (!draft) return;
+        setSavingRows(prev => ({ ...prev, [productoId]: true }));
+        try {
+            await updatePrice(productoId, {
+                precio_venta_unidad: draft.precio_venta_unidad,
+                precio_venta_granel: draft.precio_venta_granel
+            });
+            removeRowDraft(productoId);
+            setSuccess('Precios actualizados');
+        } finally {
+            setSavingRows(prev => ({ ...prev, [productoId]: false }));
+        }
+    };
+
     const formatPrice = (price) => Math.round(price).toLocaleString('es-AR');
     const getFactorKg = (producto) => {
         const direct = parseFloat(producto?.factor_conversion);
@@ -120,6 +184,19 @@ export default function Precios() {
         }
         return 0;
     };
+
+    const normalize = (value) => `${value || ''}`.trim().toLowerCase();
+    const matchesFilters = (p) => {
+        const nombre = normalize(p.nombre);
+        const marca = normalize(p.marca);
+        const codigo = normalize(p.codigo);
+        const filtro = normalize(searchQuery);
+        if (!filtro) return true;
+        return nombre.includes(filtro) || marca.includes(filtro) || codigo.includes(filtro);
+    };
+
+    const preciosUnidad = precios.filter(p => p.tipo_presentacion !== 'BOLSA' && matchesFilters(p));
+    const preciosBolsa = precios.filter(p => p.tipo_presentacion === 'BOLSA' && matchesFilters(p));
 
     return (
         <div className="container" style={{ padding: '2rem' }}>
@@ -170,85 +247,82 @@ export default function Precios() {
                                 <div>
                                     <h3 className="m-0">Precios: {selectedLista.nombre}</h3>
                                     <p className="text-sm text-muted">Margen sugerido por la lista: {(selectedLista.margen_sugerido || 0)}%</p>
-                                </div>
-                                {canEdit && (
-                                    <div className="flex gap-sm">
-                                        {editMode === 'precios' ? (
-                                            <button className="btn btn-success" onClick={() => setEditMode(null)}>
-                                                ✓ Listo (Precios)
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                className="btn btn-outline"
-                                                onClick={() => setEditMode('precios')}
-                                                disabled={!canEdit}
-                                            >
-                                                Editar Precios
-                                            </button>
-                                        )}
-                                        {editMode === 'margenes' ? (
-                                            <button className="btn btn-success" onClick={() => setEditMode(null)}>
-                                                ✓ Listo (Márgenes)
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                className="btn btn-outline"
-                                                onClick={() => setEditMode('margenes')}
-                                                disabled={!canEdit}
-                                            >
-                                                Editar Márgenes
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                                </div>`r`n                            </div>
 
                             {loadingPrecios ? (
                                 <div className="text-center p-xl"><div className="spinner mx-auto"></div></div>
                             ) : (
                                 <>
+                                    <div className="flex items-center gap-sm mb-md" style={{ flexWrap: 'wrap' }}>
+                                        <button
+                                            className={`btn ${viewMode === 'unidad' ? 'btn-primary' : 'btn-outline'}`}
+                                            onClick={() => setViewMode('unidad')}
+                                        >
+                                            Ver por Unidad
+                                        </button>
+                                        <button
+                                            className={`btn ${viewMode === 'bolsa' ? 'btn-primary' : 'btn-outline'}`}
+                                            onClick={() => setViewMode('bolsa')}
+                                        >
+                                            Ver por Bolsa
+                                        </button>
+                                    </div>
+
+                                    <div className="mb-md">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Buscar por marca, producto o codigo"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {viewMode === 'unidad' && (
+                                    <>
                                     {/* Unidad: productos tipo UNIDAD (o no BOLSA) */}
                                     <h4>Productos - Unidad</h4>
                                     <div className="table-container mb-lg">
                                         <table>
                                             <thead>
                                                 <tr>
+                                                    <th>Marca</th>
                                                     <th>Producto</th>
                                                     <th>Precio Compra</th>
                                                     <th>Margen (%)</th>
                                                     <th>Precio Venta (U)</th>
+                                                    {canEdit && <th>Acciones</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {precios.filter(p => p.tipo_presentacion !== 'BOLSA').map(p => {
+                                                {preciosUnidad.map(p => {
                                                     const costo = parseFloat(p.costo_ultima_compra) || 0;
                                                     const precioU = parseFloat(p.precio_venta_unidad) || 0;
                                                     const margenCalc = costo > 0 ? ((precioU - costo) / costo) * 100 : (selectedLista.margen_sugerido || 0);
-                                                    const isEditingPrecios = editMode === 'precios';
-                                                    const isEditingMargenes = editMode === 'margenes';
+                                                    const draft = editingRows[p.id];
+                                                    const isEditingRow = !!draft;
                                                     return (
                                                         <tr key={p.id}>
+                                                            <td>{p.marca || '-'}</td>
                                                             <td>
                                                                 <div>{p.nombre}</div>
                                                                 <code className="text-xs text-muted">{p.codigo}</code>
                                                             </td>
                                                             <td>${formatPrice(costo)}</td>
                                                             <td>
-                                                                {isEditingMargenes ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[100px]"
-                                                                        value={typeof p._margen === 'number' ? Math.round(p._margen) : Math.round(margenCalc)}
+                                                                        value={draft.margen_unidad}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, val);
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen: val, precio_venta_unidad: nuevoPrecio } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const nuevoPrecio = calculateSuggested(p.costo_ultima_compra, val);
-                                                                            await updatePrice(p.id, { precio_venta_unidad: nuevoPrecio });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], margen_unidad: val, precio_venta_unidad: nuevoPrecio }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
@@ -256,41 +330,72 @@ export default function Precios() {
                                                                 )}
                                                             </td>
                                                             <td>
-                                                                {isEditingPrecios ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[120px]"
-                                                                        value={Math.round(p.precio_venta_unidad) || 0}
+                                                                        value={draft.precio_venta_unidad}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const newMargin = costo > 0 ? ((val - costo) / costo) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen: newMargin } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const newMargin = costo > 0 ? ((val - costo) / costo) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen: newMargin } : x));
-                                                                            await updatePrice(p.id, { precio_venta_unidad: val });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], precio_venta_unidad: val, margen_unidad: newMargin }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
                                                                     <span>${formatPrice(p.precio_venta_unidad)}</span>
                                                                 )}
                                                             </td>
+                                                            {canEdit && (
+                                                                <td>
+                                                                    {isEditingRow ? (
+                                                                        <div className="flex gap-sm">
+                                                                            <button
+                                                                                className="btn btn-success btn-sm"
+                                                                                onClick={() => confirmEditUnidad(p.id)}
+                                                                                disabled={!!savingRows[p.id]}
+                                                                            >
+                                                                                ✓
+                                                                            </button>
+                                                                            <button
+                                                                                className="btn btn-outline btn-sm"
+                                                                                onClick={() => removeRowDraft(p.id)}
+                                                                                disabled={!!savingRows[p.id]}
+                                                                            >
+                                                                                Cancelar
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            className="btn btn-outline btn-sm"
+                                                                            onClick={() => startEditUnidad(p, margenCalc)}
+                                                                        >
+                                                                            Editar
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}
                                             </tbody>
                                         </table>
                                     </div>
+                                    </>
+                                    )}
 
+                                    {viewMode === 'bolsa' && (
+                                    <>
                                     {/* Bolsa: productos tipo BOLSA */}
                                     <h4>Productos - Bolsa</h4>
                                     <div className="table-container">
                                         <table>
                                             <thead>
                                                 <tr>
+                                                    <th>Marca</th>
                                                     <th>Producto</th>
                                                     <th>Precio Compra (Bolsa)</th>
                                                     <th>Margen (%)</th>
@@ -298,10 +403,11 @@ export default function Precios() {
                                                     <th>Costo x Kilo</th>
                                                     <th>Margen (%)</th>
                                                     <th>Precio Venta (Kilo)</th>
+                                                    {canEdit && <th>Acciones</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {precios.filter(p => p.tipo_presentacion === 'BOLSA').map(p => {
+                                                {preciosBolsa.map(p => {
                                                     const costoBolsa = parseFloat(p.costo_ultima_compra) || 0;
                                                     const factor = getFactorKg(p);
                                                     const costoKilo = factor > 0 ? costoBolsa / factor : 0;
@@ -309,10 +415,11 @@ export default function Precios() {
                                                     const precioKilo = parseFloat(p.precio_venta_granel) || 0;
                                                     const margenBolsaCalc = costoBolsa > 0 ? ((precioBolsa - costoBolsa) / costoBolsa) * 100 : (selectedLista.margen_sugerido || 0);
                                                     const margenKiloCalc = costoKilo > 0 ? ((precioKilo - costoKilo) / costoKilo) * 100 : (selectedLista.margen_sugerido || 0);
-                                                    const isEditingPrecios = editMode === 'precios';
-                                                    const isEditingMargenes = editMode === 'margenes';
+                                                    const draft = editingRows[p.id];
+                                                    const isEditingRow = !!draft;
                                                     return (
                                                         <tr key={p.id}>
+                                                            <td>{p.marca || '-'}</td>
                                                             <td>
                                                                 <div>{p.nombre}</div>
                                                                 <code className="text-xs text-muted">{p.codigo} • {factor}kg</code>
@@ -320,21 +427,19 @@ export default function Precios() {
                                                             <td>${formatPrice(costoBolsa)}</td>
                                                             {/* Margen Bolsa */}
                                                             <td>
-                                                                {isEditingMargenes ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[80px]"
-                                                                        value={typeof p._margen_bolsa === 'number' ? Math.round(p._margen_bolsa) : Math.round(margenBolsaCalc)}
+                                                                        value={draft.margen_bolsa}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const nuevoPrecio = Math.round(costoBolsa * (1 + val / 100));
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_bolsa: val, precio_venta_unidad: nuevoPrecio } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const nuevoPrecio = Math.round(costoBolsa * (1 + val / 100));
-                                                                            await updatePrice(p.id, { precio_venta_unidad: nuevoPrecio });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], margen_bolsa: val, precio_venta_unidad: nuevoPrecio }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
@@ -343,22 +448,19 @@ export default function Precios() {
                                                             </td>
                                                             {/* Precio Bolsa */}
                                                             <td>
-                                                                {isEditingPrecios ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[100px]"
-                                                                        value={Math.round(p.precio_venta_unidad) || 0}
+                                                                        value={draft.precio_venta_unidad}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const newMargin = costoBolsa > 0 ? ((val - costoBolsa) / costoBolsa) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen_bolsa: newMargin } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const newMargin = costoBolsa > 0 ? ((val - costoBolsa) / costoBolsa) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_unidad: val, _margen_bolsa: newMargin } : x));
-                                                                            await updatePrice(p.id, { precio_venta_unidad: val });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], precio_venta_unidad: val, margen_bolsa: newMargin }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
@@ -368,21 +470,19 @@ export default function Precios() {
                                                             <td>${formatPrice(costoKilo)}</td>
                                                             {/* Margen Kilo */}
                                                             <td>
-                                                                {isEditingMargenes ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[80px]"
-                                                                        value={typeof p._margen_kilo === 'number' ? Math.round(p._margen_kilo) : Math.round(margenKiloCalc)}
+                                                                        value={draft.margen_kilo}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const nuevoPrecioKilo = Math.round(costoKilo * (1 + val / 100));
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, _margen_kilo: val, precio_venta_granel: nuevoPrecioKilo } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const nuevoPrecioKilo = Math.round(costoKilo * (1 + val / 100));
-                                                                            await updatePrice(p.id, { precio_venta_granel: nuevoPrecioKilo });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], margen_kilo: val, precio_venta_granel: nuevoPrecioKilo }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
@@ -391,34 +491,62 @@ export default function Precios() {
                                                             </td>
                                                             {/* Precio Kilo */}
                                                             <td>
-                                                                {isEditingPrecios ? (
+                                                                {isEditingRow ? (
                                                                     <input
                                                                         type="number"
                                                                         step="1"
                                                                         className="form-input text-right py-1 w-[100px]"
-                                                                        value={Math.round(p.precio_venta_granel) || 0}
+                                                                        value={draft.precio_venta_granel}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
                                                                             const newMarginKilo = costoKilo > 0 ? ((val - costoKilo) / costoKilo) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val, _margen_kilo: newMarginKilo } : x));
-                                                                        }}
-                                                                        onBlur={async (e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const newMarginKilo = costoKilo > 0 ? ((val - costoKilo) / costoKilo) * 100 : 0;
-                                                                            setPrecios(precios.map(x => x.id === p.id ? { ...x, precio_venta_granel: val, _margen_kilo: newMarginKilo } : x));
-                                                                            await updatePrice(p.id, { precio_venta_granel: val });
+                                                                            setEditingRows(prev => ({
+                                                                                ...prev,
+                                                                                [p.id]: { ...prev[p.id], precio_venta_granel: val, margen_kilo: newMarginKilo }
+                                                                            }));
                                                                         }}
                                                                     />
                                                                 ) : (
                                                                     <span>${formatPrice(p.precio_venta_granel)}</span>
                                                                 )}
                                                             </td>
+                                                            {canEdit && (
+                                                                <td>
+                                                                    {isEditingRow ? (
+                                                                        <div className="flex gap-sm">
+                                                                            <button
+                                                                                className="btn btn-success btn-sm"
+                                                                                onClick={() => confirmEditBolsa(p.id)}
+                                                                                disabled={!!savingRows[p.id]}
+                                                                            >
+                                                                                ✓
+                                                                            </button>
+                                                                            <button
+                                                                                className="btn btn-outline btn-sm"
+                                                                                onClick={() => removeRowDraft(p.id)}
+                                                                                disabled={!!savingRows[p.id]}
+                                                                            >
+                                                                                Cancelar
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <button
+                                                                            className="btn btn-outline btn-sm"
+                                                                            onClick={() => startEditBolsa(p, margenBolsaCalc, margenKiloCalc)}
+                                                                        >
+                                                                            Editar
+                                                                        </button>
+                                                                    )}
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })}
                                             </tbody>
                                         </table>
                                     </div>
+                                    </>
+                                    )}
                                 </>
                             )}
                         </>
@@ -484,3 +612,4 @@ export default function Precios() {
         </div>
     );
 }
+

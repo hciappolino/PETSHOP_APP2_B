@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -55,7 +55,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create provider
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('proveedores.crear'), async (req, res) => {
     try {
         const { nombre, contacto, telefono, email, direccion } = req.body;
         if (!nombre) {
@@ -77,7 +77,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 });
 
 // Update provider
-router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizePermission('proveedores.editar'), async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, contacto, telefono, email, direccion, activo } = req.body;
@@ -107,7 +107,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (
 });
 
 // Delete provider
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizePermission('proveedores.editar'), async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query(

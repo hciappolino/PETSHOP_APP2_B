@@ -1,9 +1,8 @@
 -- Minimal Seed Data (admin + core config)
 
--- 1. Create admin user (password: admin123)
--- Hash: $2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu
-INSERT INTO usuarios (username, password_hash, nombre, email, rol, activo)
-VALUES ('admin', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Administrador', 'admin@petshop.com', 'admin', true);
+-- Admin user with rol_id = 1 (admin role)
+INSERT INTO usuarios (username, password_hash, nombre, email, rol_id, activo)
+VALUES ('admin', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Administrador', 'admin@petshop.com', 1, true);
 
 -- 2. Default price list (required for POS)
 INSERT INTO listas_precios (nombre, descripcion, es_default, activo)

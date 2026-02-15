@@ -3,12 +3,13 @@ import { pool } from '../config/db.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const router = Router();
 
-router.post('/init-db', async (req, res) => {
+router.post('/init-db', authenticateToken, authorizePermission('admin.initdb'), async (req, res) => {
     try {
         const { withSeeds = true } = req.body;
         
@@ -86,7 +87,7 @@ router.post('/init-db', async (req, res) => {
 });
 
 // Endpoint to drop all tables (warning: destructive operation)
-router.post('/drop-db', async (req, res) => {
+router.post('/drop-db', authenticateToken, authorizePermission('admin.initdb'), async (req, res) => {
     try {
         console.log('Eliminando todas las tablas de la base de datos...');
         

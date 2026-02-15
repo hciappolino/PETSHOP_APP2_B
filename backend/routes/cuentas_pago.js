@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -52,7 +52,7 @@ router.get('/balance-total', authenticateToken, async (req, res) => {
 });
 
 // Create new account
-router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('fondos.cuentas'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { nombre, tipo, saldo_inicial = 0 } = req.body;
@@ -110,7 +110,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'gerente'), async (re
 });
 
 // Update account
-router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.put('/:id', authenticateToken, authorizePermission('fondos.cuentas'), async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, tipo, activo } = req.body;
@@ -151,7 +151,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'gerente'), async (
 });
 
 // Toggle account active status (soft delete - set activo = false)
-router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizePermission('fondos.cuentas'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
@@ -205,7 +205,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin'), async (req, res
 });
 
 // Permanent delete account (only if no movements/references)
-router.delete('/:id/permanente', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.delete('/:id/permanente', authenticateToken, authorizePermission('fondos.cuentas'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
@@ -266,7 +266,7 @@ router.delete('/:id/permanente', authenticateToken, authorizeRole('admin'), asyn
 });
 
 // Balance account - transfer balance to another account
-router.post('/:id/balancear', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/:id/balancear', authenticateToken, authorizePermission('fondos.mover'), async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;

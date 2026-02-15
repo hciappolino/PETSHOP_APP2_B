@@ -22,8 +22,8 @@ export default function Compras() {
     const [referenciaPago, setReferenciaPago] = useState('');
     const [notasPago, setNotasPago] = useState('');
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('compras.crear');
 
     useEffect(() => {
         loadInitialData();

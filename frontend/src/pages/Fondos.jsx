@@ -28,8 +28,8 @@ export default function Fondos() {
     const [balancingAccount, setBalancingAccount] = useState(null);
     const [balanceDestinoId, setBalanceDestinoId] = useState('');
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('fondos.mover');
 
     const getDates = (range) => {
         const now = new Date();

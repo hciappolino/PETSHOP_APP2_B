@@ -33,8 +33,8 @@ export default function Clientes() {
         saldo_cc: 0
     });
 
-    const { isAdmin, isGerente } = useAuth();
-    const canEdit = isAdmin || isGerente;
+    const { hasPermission } = useAuth();
+    const canEdit = hasPermission('clientes.editar');
 
     useEffect(() => {
         loadClientes();

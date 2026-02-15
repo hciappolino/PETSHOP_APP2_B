@@ -1,6 +1,6 @@
 ﻿import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -186,7 +186,12 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
     const client = await pool.connect();
     try {
         const { id } = req.params;
-        const { monto_final_real, notas } = req.body;
+        const { monto_final_real, monto_inicial_proximo, notas } = req.body;
+        const montoInicialProximo = parseFloat(monto_inicial_proximo);
+
+        if (Number.isNaN(montoInicialProximo) || montoInicialProximo < 0) {
+            return res.status(400).json({ error: 'Debe ingresar un monto inicial valido para la proxima caja.' });
+        }
 
         await client.query('BEGIN');
 
@@ -339,8 +344,86 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'La sesión ya está cerrada o no existe' });
         }
 
+        // 6. Open next session immediately so cash is never left without an open session
+        const nuevaSesionResult = await client.query(
+            `INSERT INTO sesiones_caja (usuario_apertura_id, estado, saldo_apertura, notas)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [req.user.id, 'ABIERTA', montoInicialProximo, 'Apertura automatica posterior al cierre de caja']
+        );
+        const nuevaSesion = nuevaSesionResult.rows[0];
+
+        if (montoInicialProximo > 0) {
+            const saldosActualesRes = await client.query(
+                `SELECT id, saldo_actual, es_caja_operativa, es_caja_fondo
+                 FROM cuentas_pago
+                 WHERE id = $1 OR id = $2`,
+                [cuentaOperativaId, cuentaFondoId]
+            );
+            const cuentaOperativaActual = saldosActualesRes.rows.find(r => r.es_caja_operativa);
+            const cuentaFondoActual = saldosActualesRes.rows.find(r => r.es_caja_fondo);
+
+            if (!cuentaOperativaActual || !cuentaFondoActual) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Debe existir Caja Operativa y Caja Fondo configuradas.' });
+            }
+
+            const saldoFondoAperturaAnterior = parseFloat(cuentaFondoActual.saldo_actual || 0);
+            const saldoOperativaAperturaAnterior = parseFloat(cuentaOperativaActual.saldo_actual || 0);
+            const saldoFondoAperturaNuevo = saldoFondoAperturaAnterior - montoInicialProximo;
+            const saldoOperativaAperturaNuevo = saldoOperativaAperturaAnterior + montoInicialProximo;
+
+            await client.query(
+                'UPDATE cuentas_pago SET saldo_actual = $1 WHERE id = $2',
+                [saldoFondoAperturaNuevo, cuentaFondoId]
+            );
+            await client.query(
+                'UPDATE cuentas_pago SET saldo_actual = $1 WHERE id = $2',
+                [saldoOperativaAperturaNuevo, cuentaOperativaId]
+            );
+
+            await client.query(
+                `INSERT INTO fondos_movimientos
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                [
+                    cuentaFondoId,
+                    'EGRESO',
+                    montoInicialProximo,
+                    FONDO_APERTURA_CAJA,
+                    nuevaSesion.id,
+                    nuevaSesion.id,
+                    saldoFondoAperturaAnterior,
+                    saldoFondoAperturaNuevo,
+                    req.user.id,
+                    'Transferencia a Caja Operativa (apertura automatica)'
+                ]
+            );
+
+            await client.query(
+                `INSERT INTO fondos_movimientos
+                 (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                [
+                    cuentaOperativaId,
+                    'INGRESO',
+                    montoInicialProximo,
+                    FONDO_APERTURA_CAJA,
+                    nuevaSesion.id,
+                    nuevaSesion.id,
+                    saldoOperativaAperturaAnterior,
+                    saldoOperativaAperturaNuevo,
+                    req.user.id,
+                    'Transferencia desde Caja Fondo (apertura automatica)'
+                ]
+            );
+        }
+
         await client.query('COMMIT');
-        res.json(result.rows[0]);
+        res.json({
+            sesion_cerrada: result.rows[0],
+            sesion_abierta: nuevaSesion
+        });
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Close session error:', error);

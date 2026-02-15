@@ -12,6 +12,7 @@ export default function Caja() {
     const [historial, setHistorial] = useState([]);
     const [montoInicial, setMontoInicial] = useState('');
     const [montoFinalReal, setMontoFinalReal] = useState('');
+    const [montoInicialProximo, setMontoInicialProximo] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -54,7 +55,6 @@ export default function Caja() {
             alert('Error al abrir caja: ' + (error.response?.data?.error || error.message));
         }
     };
-
     const handleCerrarCaja = async (e) => {
         e.preventDefault();
 
@@ -63,17 +63,24 @@ export default function Caja() {
             return;
         }
 
-        if (!confirm('¿Está seguro de cerrar la caja?')) {
+        if (!montoInicialProximo || parseFloat(montoInicialProximo) < 0) {
+            alert('Ingrese un monto inicial valido para la proxima caja');
+            return;
+        }
+
+        if (!confirm('Cerrar caja y abrir automaticamente la siguiente sesion?')) {
             return;
         }
 
         try {
             await api.post(`/sesiones-caja/${sesionActual.id}/close`, {
-                monto_final_real: parseFloat(montoFinalReal)
+                monto_final_real: parseFloat(montoFinalReal),
+                monto_inicial_proximo: parseFloat(montoInicialProximo)
             });
 
-            alert('Caja cerrada exitosamente');
+            alert('Caja cerrada y reabierta exitosamente');
             setMontoFinalReal('');
+            setMontoInicialProximo('');
             loadData();
         } catch (error) {
             alert('Error al cerrar caja: ' + (error.response?.data?.error || error.message));
@@ -165,8 +172,24 @@ export default function Caja() {
                                     Cuente el efectivo físico en caja e ingrese el total para detectar diferencias.
                                 </small>
                             </div>
+                            <div className="form-group">
+                                <label className="form-label">Monto Inicial de la Proxima Caja</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={montoInicialProximo}
+                                    onChange={(e) => setMontoInicialProximo(e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                    required
+                                    placeholder="Ingrese el monto para la reapertura automatica"
+                                />
+                                <small className="text-muted block mt-sm">
+                                    Al cerrar, se abrira automaticamente una nueva sesion con este monto.
+                                </small>
+                            </div>
                             <button type="submit" className="btn btn-danger w-full">
-                                Cerrar Caja y Finalizar Día
+                                Cerrar Caja y Abrir Siguiente
                             </button>
                         </form>
                     </div>

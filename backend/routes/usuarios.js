@@ -1,17 +1,18 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get all users (public for init-db)
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, authorizePermission('admin.usuarios'), async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT id, username, nombre, email, rol, activo, created_at 
-            FROM usuarios 
-            ORDER BY created_at DESC
+            SELECT u.id, u.username, u.nombre, u.email, u.rol_id, r.nombre as rol_nombre, u.activo, u.created_at 
+            FROM usuarios u 
+            LEFT JOIN roles r ON u.rol_id = r.id
+            ORDER BY u.created_at DESC
         `);
         
         res.json(result.rows);
@@ -22,13 +23,14 @@ router.get('/', async (req, res) => {
 });
 
 // Get user by ID (public for init-db)
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, authorizePermission('admin.usuarios'), async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query(`
-            SELECT id, username, nombre, email, rol, activo, created_at 
-            FROM usuarios 
-            WHERE id = $1
+            SELECT u.id, u.username, u.nombre, u.email, u.rol_id, r.nombre as rol_nombre, u.activo, u.created_at 
+            FROM usuarios u
+            LEFT JOIN roles r ON u.rol_id = r.id
+            WHERE u.id = $1
         `, [id]);
         
         if (result.rows.length === 0) {
@@ -43,19 +45,21 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create user (public for init-db)
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, authorizePermission('admin.usuarios'), async (req, res) => {
     try {
-        const { username, nombre, email, rol, password, activo = true } = req.body;
+        const { username, nombre, email, rol_id, rol, password, activo = true } = req.body;
+        
+        // Support both rol (string) and rol_id (integer) for backward compatibility
+        const finalRolId = rol_id || (rol ? (rol.toLowerCase() === 'admin' ? 1 : rol.toLowerCase() === 'gerente' ? 1 : 2) : 2);
         
         // Validate required fields
-        if (!username || !nombre || !rol || !password) {
-            return res.status(400).json({ error: 'Username, nombre, rol y contraseña son requeridos' });
+        if (!username || !nombre || !password) {
+            return res.status(400).json({ error: 'Username, nombre y contraseña son requeridos' });
         }
         
-        // Validate role
-        const validRoles = ['admin', 'gerente', 'vendedor'];
-        if (!validRoles.includes(rol.toLowerCase())) {
-            return res.status(400).json({ error: 'Rol inválido. Los roles válidos son: admin, gerente, vendedor' });
+        // Validate role_id
+        if (typeof finalRolId !== 'number' || finalRolId < 1 || finalRolId > 10) {
+            return res.status(400).json({ error: 'ID de rol inválido' });
         }
         
         // Check if username exists
@@ -70,10 +74,10 @@ router.post('/', async (req, res) => {
         
         // Create user
         const result = await pool.query(`
-            INSERT INTO usuarios (username, password_hash, nombre, email, rol, activo)
+            INSERT INTO usuarios (username, password_hash, nombre, email, rol_id, activo)
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, username, nombre, email, rol, activo, created_at
-        `, [username, passwordHash, nombre, email, rol.toLowerCase(), activo]);
+            RETURNING id, username, nombre, email, rol_id, activo, created_at
+        `, [username, passwordHash, nombre, email, finalRolId, activo]);
         
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -83,10 +87,13 @@ router.post('/', async (req, res) => {
 });
 
 // Update user (public for init-db)
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, authorizePermission('admin.usuarios'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, nombre, email, rol, activo, password } = req.body;
+        const { username, nombre, email, rol_id, rol, activo, password } = req.body;
+        
+        // Support both rol (string) and rol_id (integer) for backward compatibility
+        const finalRolId = rol_id || (rol ? (rol.toLowerCase() === 'admin' ? 1 : rol.toLowerCase() === 'gerente' ? 1 : 2) : null);
         
         // Check if user exists
         const existingUser = await pool.query('SELECT * FROM usuarios WHERE id = $1', [id]);
@@ -94,12 +101,9 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
         
-        // Validate role
-        if (rol) {
-            const validRoles = ['admin', 'gerente', 'vendedor'];
-            if (!validRoles.includes(rol.toLowerCase())) {
-                return res.status(400).json({ error: 'Rol inválido. Los roles válidos son: admin, gerente, vendedor' });
-            }
+        // Validate role_id if provided
+        if (finalRolId !== null && finalRolId !== undefined && typeof finalRolId === 'number' && (finalRolId < 1 || finalRolId > 10)) {
+            return res.status(400).json({ error: 'ID de rol inválido' });
         }
         
         // Check if username is being changed and if new username exists
@@ -127,9 +131,9 @@ router.put('/:id', async (req, res) => {
             updateFields.push(`email = $${paramCount++}`);
             updateValues.push(email);
         }
-        if (rol) {
-            updateFields.push(`rol = $${paramCount++}`);
-            updateValues.push(rol.toLowerCase());
+        if (finalRolId !== null && finalRolId !== undefined) {
+            updateFields.push(`rol_id = ${paramCount++}`);
+            updateValues.push(finalRolId);
         }
         if (activo !== undefined) {
             updateFields.push(`activo = $${paramCount++}`);
@@ -151,8 +155,8 @@ router.put('/:id', async (req, res) => {
         const result = await pool.query(`
             UPDATE usuarios 
             SET ${updateFields.join(', ')} 
-            WHERE id = $${paramCount}
-            RETURNING id, username, nombre, email, rol, activo, created_at
+            WHERE id = ${paramCount}
+            RETURNING id, username, nombre, email, rol_id, activo, created_at
         `, updateValues);
         
         res.json(result.rows[0]);
@@ -163,7 +167,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete user (public for init-db)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, authorizePermission('admin.usuarios'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -174,8 +178,8 @@ router.delete('/:id', async (req, res) => {
         }
         
         // Prevent deleting admin user if it's the last admin
-        if (existingUser.rows[0].rol === 'admin') {
-            const adminCount = await pool.query('SELECT COUNT(*) FROM usuarios WHERE rol = $1', ['admin']);
+        if (existingUser.rows[0].rol_id === 1) {
+            const adminCount = await pool.query('SELECT COUNT(*) FROM usuarios WHERE rol_id = $1', [1]);
             if (parseInt(adminCount.rows[0].count) === 1) {
                 return res.status(400).json({ error: 'No se puede eliminar el último usuario administrador' });
             }
@@ -192,15 +196,17 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Update user role (public for init-db)
-router.put('/:id/rol', async (req, res) => {
+router.put('/:id/rol', authenticateToken, authorizePermission('admin.roles'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { rol } = req.body;
+        const { rol_id, rol } = req.body;
         
-        // Validate role
-        const validRoles = ['admin', 'gerente', 'vendedor'];
-        if (!validRoles.includes(rol.toLowerCase())) {
-            return res.status(400).json({ error: 'Rol inválido. Los roles válidos son: admin, gerente, vendedor' });
+        // Support both rol (string) and rol_id (integer) for backward compatibility
+        const finalRolId = rol_id || (rol ? (rol.toLowerCase() === 'admin' ? 1 : rol.toLowerCase() === 'gerente' ? 1 : 2) : 2);
+        
+        // Validate role_id if provided
+        if (rol_id && typeof rol_id === 'number' && (rol_id < 1 || rol_id > 10)) {
+            return res.status(400).json({ error: 'ID de rol inválido' });
         }
         
         // Check if user exists
@@ -210,8 +216,8 @@ router.put('/:id/rol', async (req, res) => {
         }
         
         // Prevent removing admin role from last admin
-        if (existingUser.rows[0].rol === 'admin' && rol.toLowerCase() !== 'admin') {
-            const adminCount = await pool.query('SELECT COUNT(*) FROM usuarios WHERE rol = $1', ['admin']);
+        if (existingUser.rows[0].rol_id === 1 && finalRolId !== 1) {
+            const adminCount = await pool.query('SELECT COUNT(*) FROM usuarios WHERE rol_id = $1', [1]);
             if (parseInt(adminCount.rows[0].count) === 1) {
                 return res.status(400).json({ error: 'No se puede eliminar el último usuario administrador' });
             }
@@ -219,10 +225,10 @@ router.put('/:id/rol', async (req, res) => {
         
         const result = await pool.query(`
             UPDATE usuarios 
-            SET rol = $1 
+            SET rol_id = $1 
             WHERE id = $2
-            RETURNING id, username, nombre, email, rol, activo, created_at
-        `, [rol.toLowerCase(), id]);
+            RETURNING id, username, nombre, email, rol_id, activo, created_at
+        `, [finalRolId, id]);
         
         res.json(result.rows[0]);
     } catch (error) {

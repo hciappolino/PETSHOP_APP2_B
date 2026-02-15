@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ router.get('/lista/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query(
-            `SELECT p.id, p.nombre, p.codigo, p.tipo_presentacion, p.costo_ultima_compra,
+            `SELECT p.id, p.nombre, p.codigo, p.marca, p.tipo_presentacion, p.costo_ultima_compra,
                     la.precio_venta_unidad, la.precio_venta_granel, la.updated_at
              FROM productos p
              LEFT JOIN lista_articulo la ON p.id = la.producto_id AND la.lista_precio_id = $1
@@ -25,7 +25,7 @@ router.get('/lista/:id', authenticateToken, async (req, res) => {
 });
 
 // Update specific product price in a list
-router.post('/actualizar', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.post('/actualizar', authenticateToken, authorizePermission('precios.editar'), async (req, res) => {
     try {
         const { lista_id, producto_id, precio_venta_unidad, precio_venta_granel } = req.body;
         if (!lista_id || !producto_id) {

@@ -10,7 +10,7 @@ export default function Login() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { login } = useAuth();
+    const { login, setUserDirect } = useAuth();
     const navigate = useNavigate();
 
     // Simple login for single-company architecture
@@ -20,15 +20,26 @@ export default function Login() {
         setLoading(true);
 
         try {
+            console.log('[DEBUG Login] Making API request to /auth/login');
             const response = await api.post('/auth/login', { username, password });
+            console.log('[DEBUG Login] API Response:', response.data);
+            
             const { token, user } = response.data;
+            console.log('[DEBUG Login] Extracted token:', token ? 'present' : 'MISSING');
+            console.log('[DEBUG Login] Extracted user:', user);
 
-            // Save token and user info
-            sessionStorage.setItem('token', token);
-            sessionStorage.setItem('user', JSON.stringify(user));
+            // Save token and user info to localStorage (FIXED: was sessionStorage)
+            console.log('[DEBUG Login] Saving to localStorage');
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
 
-            // Update auth context
-            login(user);
+            // Update auth context immediately
+            console.log('[DEBUG Login] Calling setUserDirect to update AuthContext');
+            setUserDirect(user);
+
+            // Navigate to dashboard
+            console.log('[DEBUG Login] Login successful, navigating to /');
+            navigate('/');
 
             // Navigate to dashboard
             navigate('/');

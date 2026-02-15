@@ -1,16 +1,16 @@
 -- Initial Seed Data for Single Database, Single Company
 
--- 1. Create admin user (password: admin123)
--- Hash: $2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu
-INSERT INTO usuarios (username, password_hash, nombre, email, rol, activo) 
-VALUES ('admin', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Administrador', 'admin@petshop.com', 'admin', true);
+-- Admin user (rol_id = 1)
+INSERT INTO usuarios (username, password_hash, nombre, email, rol_id, activo) 
+VALUES ('admin', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Administrador', 'admin@petshop.com', 1, true);
 
--- 2. Create sample users
-INSERT INTO usuarios (username, password_hash, nombre, email, rol, activo) 
-VALUES ('vendedor1', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Juan Vendedor', 'juan@petshop.com', 'vendedor', true);
+-- Vendedor user (rol_id = 2)
+INSERT INTO usuarios (username, password_hash, nombre, email, rol_id, activo) 
+VALUES ('vendedor1', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'Juan Vendedor', 'juan@petshop.com', 2, true);
 
-INSERT INTO usuarios (username, password_hash, nombre, email, rol, activo) 
-VALUES ('gerente', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'María Gerente', 'maria@petshop.com', 'gerente', true);
+-- Second admin user (rol_id = 1) - replaces the old 'gerente' role
+INSERT INTO usuarios (username, password_hash, nombre, email, rol_id, activo) 
+VALUES ('gerente', '$2b$10$Q4egc6JxAAehpcqAmqiPFOCDdk44QTYQwC6neXWrzAIfeR2f51Gbu', 'María Gerente', 'maria@petshop.com', 1, true);
 
 -- 3. Initial price lists
 INSERT INTO listas_precios (nombre, descripcion, es_default, activo) 

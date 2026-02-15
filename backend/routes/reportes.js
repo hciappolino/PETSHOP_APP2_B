@@ -1,6 +1,6 @@
 import express from 'express';
 import { pool } from '../config/db.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizePermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -11,16 +11,55 @@ const FONDO_APERTURA_CAJA = 7;
 const FONDO_CIERRE_CAJA = 8;
 
 // Sales summary by day
-router.get('/ventas-diarias', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/ventas-diarias', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const { dias } = req.query;
         const days = parseInt(dias) || 7;
         const result = await pool.query(
-            `SELECT DATE(fecha) as fecha, COUNT(*) as cantidad_ventas, SUM(total) as total_ventas
-             FROM ventas WHERE fecha >= CURRENT_DATE - ($1 || ' days')::INTERVAL
-             GROUP BY DATE(fecha)
-             ORDER BY DATE(fecha) DESC`,
-            [ days]
+            `WITH dias AS (
+                SELECT generate_series(
+                    CURRENT_DATE - ($1::int - 1),
+                    CURRENT_DATE,
+                    INTERVAL '1 day'
+                )::date AS fecha
+            ),
+            ventas_por_dia AS (
+                SELECT
+                    DATE(v.fecha) AS fecha,
+                    COUNT(*) AS cantidad_ventas,
+                    COALESCE(SUM(v.total), 0) AS total_ventas,
+                    COALESCE(SUM(CASE WHEN v.tipo_venta = 'CONTADO' THEN v.total ELSE 0 END), 0) AS total_contado,
+                    COALESCE(SUM(CASE WHEN v.tipo_venta = 'CUENTA_CORRIENTE' THEN v.total ELSE 0 END), 0) AS total_cuenta_corriente
+                FROM ventas v
+                WHERE DATE(v.fecha) BETWEEN CURRENT_DATE - ($1::int - 1) AND CURRENT_DATE
+                GROUP BY DATE(v.fecha)
+            ),
+            articulos_por_dia AS (
+                SELECT
+                    DATE(v.fecha) AS fecha,
+                    COALESCE(SUM(vi.cantidad), 0) AS cantidad_articulos
+                FROM ventas v
+                JOIN venta_items vi ON vi.venta_id = v.id
+                WHERE DATE(v.fecha) BETWEEN CURRENT_DATE - ($1::int - 1) AND CURRENT_DATE
+                GROUP BY DATE(v.fecha)
+            )
+            SELECT
+                d.fecha,
+                COALESCE(vd.cantidad_ventas, 0) AS cantidad_ventas,
+                COALESCE(vd.total_ventas, 0) AS total_ventas,
+                COALESCE(ad.cantidad_articulos, 0) AS cantidad_articulos,
+                CASE
+                    WHEN COALESCE(vd.cantidad_ventas, 0) > 0
+                    THEN COALESCE(vd.total_ventas, 0) / vd.cantidad_ventas
+                    ELSE 0
+                END AS ticket_promedio,
+                COALESCE(vd.total_contado, 0) AS total_contado,
+                COALESCE(vd.total_cuenta_corriente, 0) AS total_cuenta_corriente
+            FROM dias d
+            LEFT JOIN ventas_por_dia vd ON vd.fecha = d.fecha
+            LEFT JOIN articulos_por_dia ad ON ad.fecha = d.fecha
+            ORDER BY d.fecha DESC`,
+            [days]
         );
         res.json(result.rows);
     } catch (error) {
@@ -29,8 +68,67 @@ router.get('/ventas-diarias', authenticateToken, authorizeRole('admin', 'gerente
     }
 });
 
+// Sales summary by month
+router.get('/ventas-por-mes', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
+    try {
+        const { meses } = req.query;
+        const months = parseInt(meses, 10) || 12;
+
+        const result = await pool.query(
+            `WITH meses AS (
+                SELECT generate_series(
+                    DATE_TRUNC('month', CURRENT_DATE) - (($1::int - 1) * INTERVAL '1 month'),
+                    DATE_TRUNC('month', CURRENT_DATE),
+                    INTERVAL '1 month'
+                )::date AS mes_inicio
+            ),
+            ventas_mensuales AS (
+                SELECT
+                    DATE_TRUNC('month', v.fecha)::date AS mes_inicio,
+                    COUNT(*) AS cantidad_ventas_mes,
+                    COALESCE(SUM(v.total), 0) AS total_ventas
+                FROM ventas v
+                WHERE v.fecha >= DATE_TRUNC('month', CURRENT_DATE) - (($1::int - 1) * INTERVAL '1 month')
+                GROUP BY DATE_TRUNC('month', v.fecha)
+            )
+            SELECT
+                m.mes_inicio,
+                EXTRACT(YEAR FROM m.mes_inicio)::int AS anio,
+                EXTRACT(MONTH FROM m.mes_inicio)::int AS mes_numero,
+                COALESCE(vm.total_ventas, 0) AS total_ventas,
+                CASE
+                    WHEN m.mes_inicio = DATE_TRUNC('month', CURRENT_DATE)::date
+                    THEN ROUND(COALESCE(vm.cantidad_ventas_mes, 0)::numeric / NULLIF(EXTRACT(DAY FROM CURRENT_DATE)::numeric, 0), 2)
+                    ELSE ROUND(
+                        COALESCE(vm.cantidad_ventas_mes, 0)::numeric
+                        / EXTRACT(
+                            DAY FROM (
+                                DATE_TRUNC('month', m.mes_inicio) + INTERVAL '1 month - 1 day'
+                            )
+                        )::numeric,
+                        2
+                    )
+                END AS promedio_cantidad_ventas_dia,
+                CASE
+                    WHEN COALESCE(vm.cantidad_ventas_mes, 0) > 0
+                    THEN ROUND(COALESCE(vm.total_ventas, 0)::numeric / vm.cantidad_ventas_mes::numeric, 2)
+                    ELSE 0
+                END AS ticket_promedio
+            FROM meses m
+            LEFT JOIN ventas_mensuales vm ON vm.mes_inicio = m.mes_inicio
+            ORDER BY m.mes_inicio DESC`,
+            [months]
+        );
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Monthly sales report error:', error);
+        res.status(500).json({ error: 'Error al obtener reporte de ventas por mes' });
+    }
+});
+
 // Sales details today
-router.get('/ventas-del-dia', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/ventas-del-dia', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT 
@@ -67,7 +165,7 @@ router.get('/ventas-del-dia', authenticateToken, authorizeRole('admin', 'gerente
 });
 
 // Best selling products
-router.get('/productos-mas-vendidos', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/productos-mas-vendidos', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const { limite } = req.query;
         const limit = parseInt(limite) || 10;
@@ -88,7 +186,7 @@ router.get('/productos-mas-vendidos', authenticateToken, authorizeRole('admin', 
 });
 
 // Stock bajo mínimo - Enhanced with supplier info and filtering
-router.get('/stock-bajo-minimo', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/stock-bajo-minimo', authenticateToken, authorizePermission('reportes.stock'), async (req, res) => {
     try {
         const { tipo_animal, ordenar } = req.query;
         
@@ -162,7 +260,7 @@ router.get('/stock-bajo-minimo', authenticateToken, authorizeRole('admin', 'gere
 });
 
 // Profit report
-router.get('/ganancias-estimadas', authenticateToken, authorizeRole('admin'), async (req, res) => {
+router.get('/ganancias-estimadas', authenticateToken, authorizePermission('reportes.ganancias'), async (req, res) => {
     try {
         const { fecha_desde, fecha_hasta } = req.query;
         const result = await pool.query(
@@ -193,7 +291,7 @@ router.get('/ganancias-estimadas', authenticateToken, authorizeRole('admin'), as
 });
 
 // Monthly expenses report (services/insumos without stock)
-router.get('/gastos-del-mes', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/gastos-del-mes', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT 
@@ -214,7 +312,7 @@ router.get('/gastos-del-mes', authenticateToken, authorizeRole('admin', 'gerente
 });
 
 // Get financial movements report
-router.get('/movimientos-fondos', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/movimientos-fondos', authenticateToken, authorizePermission('fondos.ver'), async (req, res) => {
     try {
         const { limite } = req.query;
         const limit = parseInt(limite) || 50;
@@ -236,7 +334,7 @@ router.get('/movimientos-fondos', authenticateToken, authorizeRole('admin', 'ger
 });
 
 // Get stock movement report
-router.get('/movimientos-stock', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/movimientos-stock', authenticateToken, authorizePermission('stock.ver'), async (req, res) => {
     try {
         const { limite } = req.query;
         const limit = parseInt(limite) || 50;
@@ -258,7 +356,7 @@ router.get('/movimientos-stock', authenticateToken, authorizeRole('admin', 'gere
 });
 
 // Financial summary dashboard
-router.get('/resumen-financiero', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/resumen-financiero', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const { fecha_desde, fecha_hasta } = req.query;
         // 1. Total Sales
@@ -327,7 +425,7 @@ router.get('/resumen-financiero', authenticateToken, authorizeRole('admin', 'ger
 });
 
 // Get last purchase line for a product
-router.get('/ultima-compra/:producto_id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/ultima-compra/:producto_id', authenticateToken, authorizePermission('compras.ver'), async (req, res) => {
     try {
         const { producto_id } = req.params;
         const result = await pool.query(
@@ -352,7 +450,7 @@ router.get('/ultima-compra/:producto_id', authenticateToken, authorizeRole('admi
 });
 
 // 🔥 NUEVO: Reporte de Ventas Completo
-router.get('/ventas', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/ventas', authenticateToken, authorizePermission('reportes.ventas'), async (req, res) => {
     try {
         const { fecha_desde, fecha_hasta, periodo } = req.query;
         
@@ -518,7 +616,7 @@ router.get('/ventas', authenticateToken, authorizeRole('admin', 'gerente'), asyn
 });
 
 // © CORREGIDO: Reporte de Rendimiento por Bolsa (Granel)
-router.get('/rendimiento-granel', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/rendimiento-granel', authenticateToken, authorizePermission('stock.granel'), async (req, res) => {
     try {
         const query = `
             WITH aperturas AS (
@@ -595,7 +693,7 @@ router.get('/rendimiento-granel', authenticateToken, authorizeRole('admin', 'ger
 });
 
 // Alertas de granel para POS (bolsas abiertas con pocos kilos disponibles)
-router.get('/alertas-granel', authenticateToken, authorizeRole('admin', 'gerente', 'vendedor'), async (req, res) => {
+router.get('/alertas-granel', authenticateToken, authorizePermission('pos.ver'), async (req, res) => {
     try {
         const query = `
             WITH aperturas AS (
@@ -653,7 +751,7 @@ router.get('/alertas-granel', authenticateToken, authorizeRole('admin', 'gerente
 });
 
 // Reporte de Estado de Cuenta Corriente por Cliente
-router.get('/cliente-cc/:cliente_id', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/cliente-cc/:cliente_id', authenticateToken, authorizePermission('clientes.cc'), async (req, res) => {
     try {
         const { cliente_id } = req.params;
         const { fecha_desde, fecha_hasta } = req.query;
@@ -809,7 +907,7 @@ router.get('/cliente-cc/:cliente_id', authenticateToken, authorizeRole('admin', 
 });
 
 // © NUEVO: Reporte de Caja Diario
-router.get('/caja/diaria', authenticateToken, authorizeRole('admin', 'gerente'), async (req, res) => {
+router.get('/caja/diaria', authenticateToken, authorizePermission('caja.reportes'), async (req, res) => {
     try {
         const { fecha } = req.query;
         

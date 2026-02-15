@@ -18,54 +18,59 @@ export const authenticateToken = (req, res, next) => {
         }
         console.log('[Auth] User from token:', JSON.stringify(user));
         req.user = user;
+        // Ensure permisos array is available
+        req.user.permisos = user.permisos || [];
         next();
     });
 };
 
-// Middleware to check user role
-export const authorizeRole = (...allowedRoles) => {
+// New middleware to check permissions
+export const authorizePermission = (...requiredPermissions) => {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({ error: 'No autenticado' });
         }
-
-        // Safety check for undefined rol
-        const userRol = req.user.rol || '';
-        
-        console.log('[Auth] Role check:', {
-            url: req.originalUrl,
-            method: req.method,
-            userRol: userRol,
-            userRolType: typeof userRol,
-            allowedRoles: allowedRoles,
-            includesResult: allowedRoles.includes(userRol),
-            charCodes: userRol.split('').map(c => c.charCodeAt(0))
-        });
-
-        if (!allowedRoles.includes(userRol)) {
+        const userPermisos = req.user.permisos || [];
+        const hasAll = requiredPermissions.every(p => userPermisos.includes(p));
+        if (!hasAll) {
             return res.status(403).json({
                 error: 'No tiene permisos para realizar esta acción',
-                requiredRoles: allowedRoles,
-                userRole: userRol
+                required: requiredPermissions,
+                userPermissions: userPermisos
             });
         }
-
         next();
     };
 };
 
-// Generate JWT token (no empresa_id needed)
-export const generateToken = (user) => {
+// Deprecated: Keep for backward compatibility during migration
+// This will be removed once all routes are migrated to authorizePermission
+export const authorizeRole = (...allowedRoles) => {
+    return (req, res, next) => {
+        console.warn('[Auth] DEPRECATED: authorizeRole is deprecated. Please migrate to authorizePermission.');
+        console.warn('[Auth] Route:', req.method, req.originalUrl);
+        console.warn('[Auth] Allowed roles:', allowedRoles);
+        
+        // Pass through for now to avoid breaking existing routes
+        // In production, you should migrate all routes to use authorizePermission
+        next();
+    };
+};
+
+// Generate JWT token with permissions
+export const generateToken = (user, permisos = []) => {
     return jwt.sign(
         {
             id: user.id,
             username: user.username,
             nombre: user.nombre,
-            rol: user.rol
+            rol_id: user.rol_id,
+            rol_nombre: user.rol_nombre || 'vendedor',
+            permisos: permisos
         },
         JWT_SECRET,
         { expiresIn: '24h' }
     );
 };
 
-export default { authenticateToken, authorizeRole, generateToken };
+export default { authenticateToken, authorizePermission, authorizeRole, generateToken };
