@@ -23,6 +23,7 @@ export default function Clientes() {
     const [paymentForm, setPaymentForm] = useState({ monto: '', cuenta_pago_id: '', referencia: '' });
     const [cuentasPago, setCuentasPago] = useState([]);
     const [loadingAccounts, setLoadingAccounts] = useState(false);
+    const [registeringPayment, setRegisteringPayment] = useState(false);
 
     const [formData, setFormData] = useState({
         nombre: '',
@@ -128,8 +129,14 @@ export default function Clientes() {
 
     const handleRegisterPayment = async (e) => {
         e.preventDefault();
+        if (registeringPayment) return;
+
         if (!paymentForm.monto || parseFloat(paymentForm.monto) <= 0) {
             setError('El monto debe ser mayor a 0');
+            return;
+        }
+        if (selectedCliente && parseFloat(paymentForm.monto) > parseFloat(selectedCliente.saldo_cc || 0)) {
+            setError(`El pago no puede superar lo adeudado (${formatCurrency(selectedCliente.saldo_cc)})`);
             return;
         }
         if (!paymentForm.cuenta_pago_id) {
@@ -137,7 +144,8 @@ export default function Clientes() {
             return;
         }
         try {
-            const res = await api.post(`/clientes/${selectedCliente.id}/pagos`, paymentForm);
+            setRegisteringPayment(true);
+            await api.post(`/clientes/${selectedCliente.id}/pagos`, paymentForm);
             setShowPayModal(false);
             setPaymentForm({ monto: '', cuenta_pago_id: '', referencia: '' });
             setError('');
@@ -148,6 +156,8 @@ export default function Clientes() {
             }
         } catch (err) {
             setError('Error al registrar pago: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setRegisteringPayment(false);
         }
     };
 
@@ -404,6 +414,7 @@ export default function Clientes() {
                                     className="form-input"
                                     value={paymentForm.monto}
                                     onChange={(e) => setPaymentForm({ ...paymentForm, monto: e.target.value })}
+                                    max={selectedCliente?.saldo_cc || undefined}
                                     required
                                 />
                             </div>
@@ -430,8 +441,17 @@ export default function Clientes() {
                                 />
                             </div>
                             <div className="flex justify-end gap-md mt-lg">
-                                <button type="button" className="btn btn-outline" onClick={() => setShowPayModal(false)}>Cancelar</button>
-                                <button type="submit" className="btn btn-primary">Registrar</button>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline"
+                                    onClick={() => setShowPayModal(false)}
+                                    disabled={registeringPayment}
+                                >
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={registeringPayment}>
+                                    {registeringPayment ? 'Registrando...' : 'Registrar'}
+                                </button>
                             </div>
                         </form>
                     </div>

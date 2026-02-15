@@ -236,6 +236,11 @@ router.post('/:id/pagos', authenticateToken, async (req, res) => {
             return res.status(401).json({ error: 'Usuario no autenticado' });
         }
 
+        const montoNum = parseFloat(monto);
+        if (Number.isNaN(montoNum) || montoNum <= 0) {
+            return res.status(400).json({ error: 'El monto debe ser un numero valido mayor a 0' });
+        }
+
         await clientConn.query('BEGIN');
 
         const clientRes = await clientConn.query('SELECT id, nombre, saldo_cc FROM clientes WHERE id = $1 FOR UPDATE', [id]);
@@ -243,30 +248,96 @@ router.post('/:id/pagos', authenticateToken, async (req, res) => {
             await clientConn.query('ROLLBACK');
             return res.status(404).json({ error: 'Cliente no encontrado' });
         }
+        const saldoAdeudado = parseFloat(clientRes.rows[0].saldo_cc || 0);
+        if (saldoAdeudado <= 0) {
+            await clientConn.query('ROLLBACK');
+            return res.status(400).json({ error: 'El cliente no tiene deuda pendiente' });
+        }
+        if (montoNum > saldoAdeudado) {
+            await clientConn.query('ROLLBACK');
+            return res.status(400).json({
+                error: `El pago no puede superar lo adeudado (${saldoAdeudado.toFixed(2)})`
+            });
+        }
 
         // Verify payment account
-        const accountRes = await clientConn.query('SELECT id, saldo_actual FROM cuentas_pago WHERE id = $1 FOR UPDATE', [cuenta_pago_id]);
+        const accountRes = await clientConn.query(
+            'SELECT id, saldo_actual, es_caja_operativa FROM cuentas_pago WHERE id = $1 FOR UPDATE',
+            [cuenta_pago_id]
+        );
         if (accountRes.rows.length === 0) {
             await clientConn.query('ROLLBACK');
             return res.status(404).json({ error: 'Cuenta de pago no encontrada' });
         }
 
-        const montoNum = parseFloat(monto);
         const saldoAnterior = parseFloat(accountRes.rows[0].saldo_actual || 0);
         const saldoNuevo = saldoAnterior + montoNum;
+        const esCajaOperativa = !!accountRes.rows[0].es_caja_operativa;
+        let sesionCajaId = null;
+
+        // Si el destino es Caja Operativa, asociar el movimiento a la caja ABIERTA del dia.
+        if (esCajaOperativa) {
+            const sesionRes = await clientConn.query(
+                `SELECT id
+                 FROM sesiones_caja
+                 WHERE estado = 'ABIERTA'
+                 ORDER BY apertura_fecha DESC
+                 LIMIT 1`
+            );
+            if (sesionRes.rows.length === 0) {
+                await clientConn.query('ROLLBACK');
+                return res.status(400).json({ error: 'No hay caja abierta para registrar este pago en Caja Operativa' });
+            }
+            sesionCajaId = sesionRes.rows[0].id;
+        }
+
+        // Anti-duplicado: bloquea reintentos inmediatos del mismo pago.
+        const duplicateRes = await clientConn.query(
+            `SELECT id, created_at
+             FROM fondos_movimientos fm
+             WHERE fm.cuenta_id = $1
+               AND fm.tipo = 'INGRESO'
+               AND fm.motivo_id = $2
+               AND fm.referencia_id = $3
+               AND fm.usuario_id = $4
+               AND fm.monto = $5
+               AND (
+                    ($6::int IS NULL AND fm.sesion_caja_id IS NULL)
+                    OR fm.sesion_caja_id = $6
+               )
+               AND fm.created_at >= (CURRENT_TIMESTAMP - INTERVAL '15 seconds')
+             ORDER BY fm.created_at DESC
+             LIMIT 1`,
+            [cuenta_pago_id, FONDO_DEPOSITO, id, userId, montoNum, sesionCajaId]
+        );
+        if (duplicateRes.rows.length > 0) {
+            await clientConn.query('ROLLBACK');
+            return res.status(409).json({ error: 'Pago duplicado detectado. Reintento bloqueado.' });
+        }
 
         // Update payment account balance
         await clientConn.query('UPDATE cuentas_pago SET saldo_actual = $1 WHERE id = $2', [saldoNuevo, cuenta_pago_id]);
 
         // Insert fund movement (INGRESO)
         await clientConn.query(
-            `INSERT INTO fondos_movimientos (cuenta_id, tipo, monto, motivo_id, referencia_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [cuenta_pago_id, 'INGRESO', montoNum, FONDO_DEPOSITO, id, saldoAnterior, saldoNuevo, userId, notas || referencia || `Pago cliente ${id}`]
+            `INSERT INTO fondos_movimientos (cuenta_id, tipo, monto, motivo_id, referencia_id, sesion_caja_id, saldo_anterior, saldo_nuevo, usuario_id, descripcion)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+                cuenta_pago_id,
+                'INGRESO',
+                montoNum,
+                FONDO_DEPOSITO,
+                id,
+                sesionCajaId,
+                saldoAnterior,
+                saldoNuevo,
+                userId,
+                notas || referencia || `Pago cliente ${id}`
+            ]
         );
 
         // Decrease client saldo_cc
-        await clientConn.query('UPDATE clientes SET saldo_cc = GREATEST(saldo_cc - $1, 0) WHERE id = $2', [montoNum, id]);
+        await clientConn.query('UPDATE clientes SET saldo_cc = saldo_cc - $1 WHERE id = $2', [montoNum, id]);
 
         await clientConn.query('COMMIT');
 
