@@ -4,12 +4,12 @@ import api from '../api';
 // Spinner component
 const Spinner = ({ size = 'md' }) => {
     const sizeClasses = {
-        sm: 'w-4 h-4',
-        md: 'w-8 h-8',
-        lg: 'w-12 h-12'
+        sm: 'w-4 h-4 border-2',
+        md: 'w-8 h-8 border-3',
+        lg: 'w-12 h-12 border-4'
     };
     return (
-        <div className={`${sizeClasses[size]} border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin`}></div>
+        <div className={`${sizeClasses[size]} border-[var(--border)] border-t-[var(--primary)] rounded-full animate-spin`}></div>
     );
 };
 
@@ -17,23 +17,124 @@ const Spinner = ({ size = 'md' }) => {
 const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                <h3 className="text-lg font-bold mb-2">{title}</h3>
-                <p className="text-gray-600 mb-4">{message}</p>
-                <div className="flex justify-end gap-3">
+        <div className="modal-overlay">
+            <div className="modal" style={{ maxWidth: '450px' }}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${danger ? 'bg-[rgba(239,68,68,0.2)]' : 'bg-[rgba(99,102,241,0.2)]'}`}>
+                        <span className="text-2xl">{danger ? '!' : '?'}</span>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold m-0">{title}</h3>
+                        <p className="text-[var(--text-secondary)] text-sm m-0">{message}</p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
                     <button 
                         onClick={onCancel}
-                        className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                        className="btn btn-outline"
                     >
                         {cancelText}
                     </button>
                     <button 
                         onClick={onConfirm}
-                        className={`px-4 py-2 text-white rounded ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`}
                     >
                         {confirmText}
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Permission Card Component
+const PermissionCard = ({ modulo, permisos, selectedPermisos, onTogglePermiso, onToggleModule, disabled }) => {
+    const allIds = permisos.map(p => p.id);
+    const selectedCount = allIds.filter(id => selectedPermisos.includes(id)).length;
+    const totalCount = allIds.length;
+    const isAllSelected = selectedCount === totalCount;
+    const isPartial = selectedCount > 0 && selectedCount < totalCount;
+
+    // Icon mapping for modules
+    const moduleIcons = {
+        'dashboard': 'chart',
+        'ventas': 'cart',
+        'productos': 'box',
+        'clientes': 'users',
+        'compras': 'truck',
+        'proveedores': 'building',
+        'stock': 'package',
+        'caja': 'cash',
+        'fondos': 'wallet',
+        'reportes': 'chart-bar',
+        'usuarios': 'user-cog',
+        'roles': 'shield',
+        'promociones': 'tag',
+        'precios': 'price',
+        'backup': 'database',
+        'sistema': 'settings'
+    };
+
+    const getModuleIcon = (name) => {
+        const key = name.toLowerCase();
+        return moduleIcons[key] || 'key';
+    };
+
+    return (
+        <div className="permission-card">
+            <div className="permission-header" onClick={() => onToggleModule(permisos, !isAllSelected)}>
+                <div className="permission-header-left">
+                    <div className="module-icon">
+                        {getModuleIcon(modulo) === 'chart' && 'chart'}
+                        {getModuleIcon(modulo) === 'cart' && 'cart'}
+                        {getModuleIcon(modulo) === 'box' && 'box'}
+                        {getModuleIcon(modulo) === 'users' && 'users'}
+                        {getModuleIcon(modulo) === 'truck' && 'truck'}
+                        {getModuleIcon(modulo) === 'building' && 'building'}
+                        {getModuleIcon(modulo) === 'package' && 'package'}
+                        {getModuleIcon(modulo) === 'cash' && 'cash'}
+                        {getModuleIcon(modulo) === 'wallet' && 'wallet'}
+                        {getModuleIcon(modulo) === 'chart-bar' && 'chart-bar'}
+                        {getModuleIcon(modulo) === 'user-cog' && 'user-cog'}
+                        {getModuleIcon(modulo) === 'shield' && 'shield'}
+                        {getModuleIcon(modulo) === 'tag' && 'tag'}
+                        {getModuleIcon(modulo) === 'price' && 'price'}
+                        {getModuleIcon(modulo) === 'database' && 'database'}
+                        {getModuleIcon(modulo) === 'settings' && 'settings'}
+                        {getModuleIcon(modulo) === 'key' && 'key'}
+                    </div>
+                    <div>
+                        <h4 className="module-name">{modulo}</h4>
+                        <span className="permission-count">{selectedCount}/{totalCount} permisos</span>
+                    </div>
+                </div>
+                <div className="permission-header-right">
+                    <label className="toggle-switch" onClick={(e) => e.stopPropagation()}>
+                        <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            ref={el => { if (el) el.indeterminate = isPartial; }}
+                            onChange={(e) => onToggleModule(permisos, e.target.checked)}
+                            disabled={disabled}
+                        />
+                        <span className="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div className="permission-body">
+                <div className="permission-grid">
+                    {permisos.map(permiso => (
+                        <label key={permiso.id} className={`permission-item ${selectedPermisos.includes(permiso.id) ? 'selected' : ''}`}>
+                            <input
+                                type="checkbox"
+                                checked={selectedPermisos.includes(permiso.id)}
+                                onChange={() => onTogglePermiso(permiso.id)}
+                                disabled={disabled}
+                            />
+                            <span className="permission-checkmark"></span>
+                            <span className="permission-label">{permiso.nombre}</span>
+                        </label>
+                    ))}
                 </div>
             </div>
         </div>
@@ -188,161 +289,183 @@ export default function AdminRoles() {
         });
     };
 
-    const isModuleChecked = (modulePermisos) => {
-        const ids = modulePermisos.map(p => p.id);
-        const selected = ids.filter(id => selectedPermisos.includes(id));
-        if (selected.length === 0) return false;
-        if (selected.length === ids.length) return true;
-        return 'partial';
-    };
-
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
                 <Spinner size="lg" />
-                <p className="mt-4 text-gray-600">Cargando roles y permisos...</p>
+                <p className="mt-4 text-[var(--text-secondary)]">Cargando roles y permisos...</p>
             </div>
         </div>
     );
 
     return (
-        <div className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h1 className="text-2xl font-bold">🔐 Roles y Permisos</h1>
+        <div className="admin-page">
+            {/* Header */}
+            <div className="admin-header">
+                <div className="admin-header-left">
+                    <h1 className="admin-title">
+                        <span className="admin-title-icon">shield</span>
+                        Roles y Permisos
+                    </h1>
+                    <p className="admin-subtitle">Gestiona los roles y sus permisos asociados</p>
+                </div>
                 <button 
                     onClick={handleNewRole}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                    className="btn btn-primary"
                 >
-                    + Nuevo Rol
+                    <span>+</span> Nuevo Rol
                 </button>
             </div>
 
+            {/* Messages */}
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded relative">
-                    {error}
-                    <button onClick={() => setError(null)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">✕</button>
+                <div className="alert alert-error">
+                    <span className="alert-icon">!</span>
+                    <span>{error}</span>
+                    <button onClick={() => setError(null)} className="alert-close">×</button>
                 </div>
             )}
             {success && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 mb-4 rounded relative">
-                    {success}
-                    <button onClick={() => setSuccess(null)} className="absolute top-2 right-2 text-green-500 hover:text-green-700">✕</button>
+                <div className="alert alert-success">
+                    <span className="alert-icon">ok</span>
+                    <span>{success}</span>
+                    <button onClick={() => setSuccess(null)} className="alert-close">×</button>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="admin-grid">
                 {/* Roles List */}
-                <div className="bg-white rounded-lg shadow p-4">
-                    <h2 className="font-bold mb-2">Roles</h2>
-                    <div className="space-y-2">
+                <div className="roles-panel">
+                    <div className="panel-header">
+                        <h2 className="panel-title">Roles</h2>
+                        <span className="panel-badge">{roles.length}</span>
+                    </div>
+                    <div className="roles-list">
                         {roles.map(rol => (
                             <div 
                                 key={rol.id}
                                 onClick={() => selectRole(rol)}
-                                className={`p-2 rounded cursor-pointer flex justify-between items-center transition-colors ${
-                                    selectedRole?.id === rol.id ? 'bg-blue-100' : 'hover:bg-gray-100'
-                                }`}
+                                className={`role-item ${selectedRole?.id === rol.id ? 'active' : ''}`}
                             >
-                                <span>{rol.nombre}</span>
-                                {rol.es_sistema && <span className="text-xs bg-gray-200 px-1 rounded">🔒</span>}
+                                <div className="role-item-left">
+                                    <div className="role-avatar">
+                                        {rol.nombre.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <span className="role-name">{rol.nombre}</span>
+                                        {rol.descripcion && (
+                                            <span className="role-desc">{rol.descripcion}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                {rol.es_sistema && <span className="system-badge">Sistema</span>}
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Permissions Panel */}
-                <div className="md:col-span-3 bg-white rounded-lg shadow p-4">
+                <div className="permissions-panel">
                     {editingRole ? (
                         // Creating/editing role
-                        <div>
-                            <h2 className="font-bold mb-4">Crear Nuevo Rol</h2>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Nombre del Rol</label>
-                                <input
-                                    type="text"
-                                    value={editingRole.nombre}
-                                    onChange={(e) => setEditingRole({...editingRole, nombre: e.target.value})}
-                                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="ej: Vendedor Senior"
-                                />
+                        <div className="edit-form-container">
+                            <div className="edit-form-header">
+                                <h2 className="panel-title">Crear Nuevo Rol</h2>
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium mb-1">Descripción</label>
-                                <textarea
-                                    value={editingRole.descripcion}
-                                    onChange={(e) => setEditingRole({...editingRole, descripcion: e.target.value})}
-                                    className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows={2}
-                                />
+                            <div className="edit-form-body">
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        <span className="label-icon">user</span>
+                                        Nombre del Rol
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editingRole.nombre}
+                                        onChange={(e) => setEditingRole({...editingRole, nombre: e.target.value})}
+                                        className="form-input"
+                                        placeholder="ej: Vendedor Senior"
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        <span className="label-icon">text</span>
+                                        Descripción
+                                    </label>
+                                    <textarea
+                                        value={editingRole.descripcion}
+                                        onChange={(e) => setEditingRole({...editingRole, descripcion: e.target.value})}
+                                        className="form-textarea"
+                                        rows={2}
+                                        placeholder="Describe el rol y sus responsabilidades..."
+                                    />
+                                </div>
+                                <h3 className="section-title">
+                                    <span className="section-icon">key</span>
+                                    Asignar Permisos
+                                </h3>
                             </div>
-                            <h3 className="font-bold mb-2">Seleccionar Permisos:</h3>
                         </div>
                     ) : selectedRole ? (
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
-                            <h2 className="font-bold">
-                                Permisos de: {selectedRole.nombre}
-                                {selectedRole.es_sistema && <span className="text-sm font-normal text-gray-500 ml-2">(Rol del sistema)</span>}
-                            </h2>
+                        <div className="selected-role-header">
+                            <div className="selected-role-info">
+                                <div className="selected-role-avatar">
+                                    {selectedRole.nombre.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h2 className="selected-role-name">
+                                        {selectedRole.nombre}
+                                    </h2>
+                                    {selectedRole.es_sistema && (
+                                        <span className="system-role-badge">Rol del sistema - solo lectura</span>
+                                    )}
+                                </div>
+                            </div>
                             {!selectedRole.es_sistema && (
-                                <div className="flex gap-2">
+                                <div className="role-actions">
                                     <button 
                                         onClick={handleEditRole}
-                                        className="text-blue-600 hover:underline"
+                                        className="btn btn-outline btn-sm"
                                     >
-                                        ✏️ Editar nombre
+                                        <span>edit</span> Editar nombre
                                     </button>
                                     <button 
                                         onClick={handleDeleteRole}
-                                        className="text-red-600 hover:underline"
+                                        className="btn btn-danger btn-sm"
                                     >
-                                        🗑️ Eliminar
+                                        <span>trash</span> Eliminar
                                     </button>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <p className="text-gray-500">Seleccione un rol para ver sus permisos</p>
+                        <div className="empty-state">
+                            <div className="empty-icon">shield</div>
+                            <p>Seleccione un rol para ver sus permisos</p>
+                        </div>
                     )}
 
                     {(editingRole || selectedRole) && (
-                        <div className="space-y-4">
-                            {Object.entries(permisos.grouped).map(([modulo, moduloPermisos]) => {
-                                const checked = isModuleChecked(moduloPermisos);
-                                return (
-                                    <div key={modulo} className="border rounded p-3">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <input
-                                                type="checkbox"
-                                                checked={checked === true}
-                                                ref={el => { if (el) el.indeterminate = checked === 'partial'; }}
-                                                onChange={(e) => toggleModule(moduloPermisos, e.target.checked)}
-                                                className="w-4 h-4"
-                                                disabled={selectedRole?.es_sistema}
-                                            />
-                                            <span className="font-medium uppercase">{modulo}</span>
-                                        </div>
-                                        <div className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {moduloPermisos.map(permiso => (
-                                                <label key={permiso.id} className="flex items-center gap-2 text-sm">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedPermisos.includes(permiso.id)}
-                                                        onChange={() => togglePermiso(permiso.id)}
-                                                        className="w-3 h-3"
-                                                        disabled={selectedRole?.es_sistema}
-                                                    />
-                                                    <span>{permiso.nombre}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            
+                        <div className="permissions-grid">
+                            {Object.entries(permisos.grouped).map(([modulo, moduloPermisos]) => (
+                                <PermissionCard
+                                    key={modulo}
+                                    modulo={modulo}
+                                    permisos={moduloPermisos}
+                                    selectedPermisos={selectedPermisos}
+                                    onTogglePermiso={togglePermiso}
+                                    onToggleModule={toggleModule}
+                                    disabled={selectedRole?.es_sistema}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {(editingRole || selectedRole) && !selectedRole?.es_sistema && (
+                        <div className="save-actions">
                             <button 
                                 onClick={handleSaveRole}
-                                disabled={selectedRole?.es_sistema || saving}
-                                className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                disabled={saving}
+                                className="btn btn-primary btn-lg"
                             >
                                 {saving && <Spinner size="sm" />}
                                 {saving ? 'Guardando...' : 'Guardar Cambios'}

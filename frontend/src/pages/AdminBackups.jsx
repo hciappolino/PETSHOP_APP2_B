@@ -4,12 +4,12 @@ import api from '../api';
 // Spinner component
 const Spinner = ({ size = 'md' }) => {
     const sizeClasses = {
-        sm: 'w-4 h-4',
-        md: 'w-8 h-8',
-        lg: 'w-12 h-12'
+        sm: 'w-4 h-4 border-2',
+        md: 'w-8 h-8 border-3',
+        lg: 'w-12 h-12 border-4'
     };
     return (
-        <div className={`${sizeClasses[size]} border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin`}></div>
+        <div className={`${sizeClasses[size]} border-[var(--border)] border-t-[var(--primary)] rounded-full animate-spin`}></div>
     );
 };
 
@@ -17,20 +17,27 @@ const Spinner = ({ size = 'md' }) => {
 const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-                <h3 className="text-lg font-bold mb-2">{title}</h3>
-                <p className="text-gray-600 mb-4">{message}</p>
-                <div className="flex justify-end gap-3">
+        <div className="modal-overlay">
+            <div className="modal" style={{ maxWidth: '450px' }}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${danger ? 'bg-[rgba(239,68,68,0.2)]' : 'bg-[rgba(99,102,241,0.2)]'}`}>
+                        <span className="text-2xl">{danger ? '⚠️' : '❓'}</span>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold m-0">{title}</h3>
+                        <p className="text-[var(--text-secondary)] text-sm m-0">{message}</p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
                     <button 
                         onClick={onCancel}
-                        className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                        className="btn btn-outline"
                     >
                         {cancelText}
                     </button>
                     <button 
                         onClick={onConfirm}
-                        className={`px-4 py-2 text-white rounded ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`}
                     >
                         {confirmText}
                     </button>
@@ -144,7 +151,14 @@ export default function AdminBackups() {
     };
 
     const handleDelete = async (filename) => {
-        if (!confirm(`¿Está seguro de eliminar el backup "${filename}"?`)) return;
+        setDeleteModal({ open: true, filename });
+    };
+
+    const [deleteModal, setDeleteModal] = useState({ open: false, filename: '' });
+
+    const confirmDelete = async () => {
+        const filename = deleteModal.filename;
+        setDeleteModal({ open: false, filename: '' });
         
         try {
             await api.delete(`/backups/${filename}`);
@@ -198,93 +212,161 @@ export default function AdminBackups() {
         currentPage * itemsPerPage
     );
 
+    // Calculate total size
+    const totalSizeMB = backups.reduce((acc, b) => acc + (b.sizeMB || 0), 0);
+
     if (loading) return (
         <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
                 <Spinner size="lg" />
-                <p className="mt-4 text-gray-600">Cargando backups...</p>
+                <p className="mt-4 text-[var(--text-secondary)]">Cargando backups...</p>
             </div>
         </div>
     );
 
     return (
-        <div className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h1 className="text-2xl font-bold">💾 Gestión de Backups</h1>
+        <div className="admin-page">
+            {/* Header */}
+            <div className="admin-header">
+                <div className="admin-header-left">
+                    <h1 className="admin-title">
+                        <span className="admin-title-icon">💾</span>
+                        Gestión de Backups
+                    </h1>
+                    <p className="admin-subtitle">Administra los respaldos de la base de datos</p>
+                </div>
                 <button 
                     onClick={handleCreateBackup}
                     disabled={creating}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="btn btn-primary"
                 >
-                    {creating && <Spinner size="sm" />}
-                    {creating ? 'Creando...' : '🔄 Crear Backup Ahora'}
+                    {creating ? <Spinner size="sm" /> : <span>🔄</span>}
+                    {creating ? 'Creando...' : 'Crear Backup Ahora'}
                 </button>
             </div>
 
+            {/* Messages */}
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mb-4 rounded relative">
-                    {error}
-                    <button onClick={() => setError(null)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">✕</button>
+                <div className="alert alert-danger flex items-center justify-between">
+                    <span>{error}</span>
+                    <button onClick={() => setError(null)} className="text-[var(--danger)] hover:text-white">✕</button>
                 </div>
             )}
             {success && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 mb-4 rounded relative">
-                    {success}
-                    <button onClick={() => setSuccess(null)} className="absolute top-2 right-2 text-green-500 hover:text-green-700">✕</button>
+                <div className="alert alert-success flex items-center justify-between">
+                    <span>{success}</span>
+                    <button onClick={() => setSuccess(null)} className="text-[var(--success)] hover:text-white">✕</button>
                 </div>
             )}
 
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <h2 className="font-bold mb-2">ℹ️ Información</h2>
-                <p className="text-sm text-gray-600">
-                    Los backups se guardan en el servidor. Descargue los archivos .dump a su PC 
-                    y guárdelos en un lugar seguro (Google Drive, USB, disco externo, etc.).
-                </p>
+            {/* Stats Cards */}
+            <div className="grid-3 mb-lg">
+                <div className="card">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-[rgba(99,102,241,0.2)] flex items-center justify-center">
+                            <span className="text-xl">📦</span>
+                        </div>
+                        <div>
+                            <p className="text-[var(--text-muted)] text-sm m-0">Total Backups</p>
+                            <p className="text-xl font-bold m-0">{backups.length}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-[rgba(16,185,129,0.2)] flex items-center justify-center">
+                            <span className="text-xl">💿</span>
+                        </div>
+                        <div>
+                            <p className="text-[var(--text-muted)] text-sm m-0">Tamaño Total</p>
+                            <p className="text-xl font-bold m-0">{totalSizeMB.toFixed(2)} MB</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-[rgba(245,158,11,0.2)] flex items-center justify-center">
+                            <span className="text-xl">ℹ️</span>
+                        </div>
+                        <div>
+                            <p className="text-[var(--text-muted)] text-sm m-0">Último Backup</p>
+                            <p className="text-sm font-bold m-0">
+                                {backups.length > 0 ? backups[0].createdFormatted : 'Sin backups'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead className="bg-gray-100">
+            {/* Info Card */}
+            <div className="card mb-lg">
+                <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[rgba(99,102,241,0.2)] flex items-center justify-center flex-shrink-0">
+                        <span>ℹ️</span>
+                    </div>
+                    <div>
+                        <h4 className="font-bold mb-1">Información</h4>
+                        <p className="text-[var(--text-secondary)] text-sm m-0">
+                            Los backups se guardan en el servidor. Descargue los archivos .dump a su PC 
+                            y guárdelos en un lugar seguro (Google Drive, USB, disco externo, etc.).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th 
+                                className="cursor-pointer hover:bg-[var(--bg-tertiary)]"
+                                onClick={() => handleSort('filename')}
+                            >
+                                Archivo {getSortIcon('filename')}
+                            </th>
+                            <th 
+                                className="cursor-pointer hover:bg-[var(--bg-tertiary)]"
+                                onClick={() => handleSort('sizeMB')}
+                            >
+                                Tamaño {getSortIcon('sizeMB')}
+                            </th>
+                            <th 
+                                className="cursor-pointer hover:bg-[var(--bg-tertiary)]"
+                                onClick={() => handleSort('created')}
+                            >
+                                Fecha de Creación {getSortIcon('created')}
+                            </th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {backups.length === 0 ? (
                             <tr>
-                                <th 
-                                    className="px-4 py-2 text-left cursor-pointer hover:bg-gray-200"
-                                    onClick={() => handleSort('filename')}
-                                >
-                                    Archivo {getSortIcon('filename')}
-                                </th>
-                                <th 
-                                    className="px-4 py-2 text-left cursor-pointer hover:bg-gray-200"
-                                    onClick={() => handleSort('sizeMB')}
-                                >
-                                    Tamaño {getSortIcon('sizeMB')}
-                                </th>
-                                <th 
-                                    className="px-4 py-2 text-left cursor-pointer hover:bg-gray-200"
-                                    onClick={() => handleSort('created')}
-                                >
-                                    Fecha de Creación {getSortIcon('created')}
-                                </th>
-                                <th className="px-4 py-2 text-left">Acciones</th>
+                                <td colSpan="4" className="text-center text-[var(--text-muted)] py-8">
+                                    No hay backups disponibles
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {backups.length === 0 ? (
-                                <tr>
-                                    <td colSpan="4" className="px-4 py-8 text-center text-gray-500">
-                                        No hay backups disponibles
+                        ) : (
+                            paginatedBackups.map(backup => (
+                                <tr key={backup.filename}>
+                                    <td>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-[rgba(99,102,241,0.2)] flex items-center justify-center">
+                                                <span>📦</span>
+                                            </div>
+                                            <span className="font-medium">{backup.filename}</span>
+                                        </div>
                                     </td>
-                                </tr>
-                            ) : (
-                                paginatedBackups.map(backup => (
-                                    <tr key={backup.filename} className="border-t hover:bg-gray-50">
-                                        <td className="px-4 py-3">📦 {backup.filename}</td>
-                                        <td className="px-4 py-3">{backup.sizeMB} MB</td>
-                                        <td className="px-4 py-3">{backup.createdFormatted}</td>
-                                        <td className="px-4 py-3">
+                                    <td>
+                                        <span className="badge badge-info">{backup.sizeMB} MB</span>
+                                    </td>
+                                    <td className="text-[var(--text-secondary)]">{backup.createdFormatted}</td>
+                                    <td>
+                                        <div className="flex gap-2">
                                             <button 
                                                 onClick={() => handleDownload(backup.filename)}
-                                                className="text-blue-600 hover:underline mr-2"
+                                                className="btn btn-outline btn-sm"
                                                 title="Descargar a mi PC"
                                             >
                                                 ⬇ Descargar
@@ -292,43 +374,44 @@ export default function AdminBackups() {
                                             <button 
                                                 onClick={() => openRestoreModal(backup.filename)}
                                                 disabled={restoring}
-                                                className="text-orange-600 hover:underline mr-2 disabled:opacity-50"
+                                                className="btn btn-outline btn-sm text-[var(--warning)]"
                                                 title="Restaurar este backup"
                                             >
-                                                {restoring && restoreModal.filename === backup.filename ? '🔄 Restaurando...' : '🔄 Restaurar'}
+                                                {restoring && restoreModal.filename === backup.filename ? '🔄' : '🔄'}
+                                                {restoring && restoreModal.filename === backup.filename ? 'Restaurando...' : 'Restaurar'}
                                             </button>
                                             <button 
                                                 onClick={() => handleDelete(backup.filename)}
-                                                className="text-red-600 hover:underline"
+                                                className="btn btn-outline btn-sm text-[var(--danger)]"
                                                 title="Eliminar backup"
                                             >
                                                 🗑️
                                             </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
                 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 py-4 border-t">
+                    <div className="pagination">
                         <button
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="pagination-btn"
                         >
                             ← Anterior
                         </button>
-                        <span className="px-3 py-1">
+                        <span className="pagination-info">
                             Página {currentPage} de {totalPages}
                         </span>
                         <button
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
-                            className="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="pagination-btn"
                         >
                             Siguiente →
                         </button>
@@ -336,9 +419,15 @@ export default function AdminBackups() {
                 )}
             </div>
 
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mt-4">
-                <strong>⚠️ Advertencia:</strong> Restaurar un backup REEMPLAZA todos los datos actuales. 
-                Se recomienda crear un backup antes de restaurar.
+            {/* Warning */}
+            <div className="alert alert-warning mt-lg">
+                <div className="flex items-center gap-3">
+                    <span className="text-xl">⚠️</span>
+                    <div>
+                        <strong>Advertencia:</strong> Restaurar un backup REEMPLAZA todos los datos actuales. 
+                        Se recomienda crear un backup antes de restaurar.
+                    </div>
+                </div>
             </div>
 
             {/* Restore Confirmation Modal */}
@@ -349,6 +438,18 @@ export default function AdminBackups() {
                 onConfirm={handleRestore}
                 onCancel={() => setRestoreModal({ open: false, filename: '' })}
                 confirmText="Restaurar"
+                cancelText="Cancelar"
+                danger={true}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={deleteModal.open}
+                title="Eliminar Backup"
+                message={`¿Está seguro de eliminar el backup "${deleteModal.filename}"? Esta acción no se puede deshacer.`}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteModal({ open: false, filename: '' })}
+                confirmText="Eliminar"
                 cancelText="Cancelar"
                 danger={true}
             />
